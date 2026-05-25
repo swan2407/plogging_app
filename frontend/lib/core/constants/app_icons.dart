@@ -6,4 +6,5 @@ class AppIcons {
   static const group = 'assets/icons/ic_group.svg';
   static const map = 'assets/icons/ic_map.svg';
   static const message = 'assets/icons/ic_chat.svg';
+  static const profile = 'assets/icons/ic_profile.svg';
 }

@@ -7,6 +7,6 @@ class MessageScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const PlaceholderScreen(title: '메시지');
+    return const PlaceholderScreen(title: '커뮤니티');
   }
 }

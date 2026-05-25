@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/mock_auth_controller.dart';
+
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.onLoginPressed});
+
+  final VoidCallback onLoginPressed;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -16,20 +20,20 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-          children: const [
-            _GreetingHeader(),
-            SizedBox(height: 18),
-            _SearchBar(),
-            SizedBox(height: 18),
-            _TodayPloggingCard(),
-            SizedBox(height: 18),
-            _StartPloggingButton(),
-            SizedBox(height: 26),
-            _ScheduleSection(),
-            SizedBox(height: 26),
-            _GroupPreviewSection(),
-            SizedBox(height: 26),
-            _CommunitySection(),
+          children: [
+            _GreetingHeader(onLoginPressed: onLoginPressed),
+            const SizedBox(height: 18),
+            const _SearchBar(),
+            const SizedBox(height: 18),
+            const _TodayPloggingCard(),
+            const SizedBox(height: 18),
+            const _StartPloggingButton(),
+            const SizedBox(height: 26),
+            const _ScheduleSection(),
+            const SizedBox(height: 26),
+            const _GroupPreviewSection(),
+            const SizedBox(height: 26),
+            const _CommunitySection(),
           ],
         ),
       ),
@@ -38,7 +42,9 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _GreetingHeader extends StatelessWidget {
-  const _GreetingHeader();
+  const _GreetingHeader({required this.onLoginPressed});
+
+  final VoidCallback onLoginPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -71,18 +77,30 @@ class _GreetingHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 14),
-        FilledButton.icon(
-          onPressed: null,
-          icon: Icon(Icons.person_outline, size: 18),
-          label: Text('로그인'),
-          style: FilledButton.styleFrom(
-            disabledBackgroundColor: HomeScreen._green,
-            disabledForegroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+        ValueListenableBuilder<bool>(
+          valueListenable: mockAuthController,
+          builder: (context, isLoggedIn, child) {
+            if (isLoggedIn) {
+              return const SizedBox.shrink();
+            }
+
+            return FilledButton.icon(
+              onPressed: onLoginPressed,
+              icon: const Icon(Icons.login, size: 18),
+              label: const Text('로그인'),
+              style: FilledButton.styleFrom(
+                backgroundColor: HomeScreen._green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -182,18 +200,15 @@ class _StartPloggingButton extends StatelessWidget {
     return SizedBox(
       height: 58,
       child: FilledButton.icon(
-        onPressed: null,
+        onPressed: () {},
         icon: const Icon(Icons.play_arrow_rounded, size: 30),
         label: const Text(
           '개인 플로깅 시작하기',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
         ),
         style: FilledButton.styleFrom(
-          disabledBackgroundColor: HomeScreen._green,
-          disabledForegroundColor: Colors.white,
+          backgroundColor: HomeScreen._green,
+          foregroundColor: Colors.white,
           elevation: 8,
           shadowColor: HomeScreen._green.withValues(alpha: 0.28),
           shape: RoundedRectangleBorder(
