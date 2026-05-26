@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/mock_auth_controller.dart';
+import '../../auth/presentation/login_screen.dart';
+
 class PersonalPloggingScreen extends StatefulWidget {
   const PersonalPloggingScreen({super.key});
 
@@ -59,31 +62,131 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
     );
   }
 
+  void _openLoginScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const LoginScreen(popAfterLogin: true),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _background,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-          children: [
-            const _ScreenHeader(),
-            const SizedBox(height: 18),
-            const _MapPlaceholderCard(),
-            const SizedBox(height: 18),
-            if (_isStarted) ...[
-              _StatusCard(isPaused: _isPaused, trashCount: _trashCount),
-              const SizedBox(height: 18),
-              _ActionButtons(
-                isPaused: _isPaused,
-                onPausePressed: _togglePause,
-                onTrashPressed: _showTrashRegistrationSheet,
-                onFinishPressed: _finishPlogging,
+      body: ValueListenableBuilder<bool>(
+        valueListenable: mockAuthController,
+        builder: (context, isLoggedIn, child) {
+          if (!isLoggedIn) {
+            return SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                  child: _LoginRequiredCard(onLoginPressed: _openLoginScreen),
+                ),
               ),
-            ] else
-              _StartButton(onPressed: _startPlogging),
-          ],
-        ),
+            );
+          }
+
+          return SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              children: [
+                const _ScreenHeader(),
+                const SizedBox(height: 18),
+                const _MapPlaceholderCard(),
+                const SizedBox(height: 18),
+                if (_isStarted) ...[
+                  _StatusCard(isPaused: _isPaused, trashCount: _trashCount),
+                  const SizedBox(height: 18),
+                  _ActionButtons(
+                    isPaused: _isPaused,
+                    onPausePressed: _togglePause,
+                    onTrashPressed: _showTrashRegistrationSheet,
+                    onFinishPressed: _finishPlogging,
+                  ),
+                ] else
+                  _StartButton(onPressed: _startPlogging),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LoginRequiredCard extends StatelessWidget {
+  const _LoginRequiredCard({required this.onLoginPressed});
+
+  final VoidCallback onLoginPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PloggingCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: _PersonalPloggingScreenState._lightGreen,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: const Icon(
+              Icons.lock_outline,
+              color: _PersonalPloggingScreenState._green,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            '로그인이 필요해요',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _PersonalPloggingScreenState._darkText,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            '플로깅 기록과 쓰레기 인증을 저장하려면 로그인이 필요합니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _PersonalPloggingScreenState._grayText,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: FilledButton.icon(
+              onPressed: onLoginPressed,
+              icon: const Icon(Icons.login, size: 20),
+              label: const Text(
+                '로그인하고 플로깅 시작하기',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: _PersonalPloggingScreenState._green,
+                foregroundColor: Colors.white,
+                elevation: 8,
+                shadowColor: _PersonalPloggingScreenState._green.withValues(
+                  alpha: 0.28,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
