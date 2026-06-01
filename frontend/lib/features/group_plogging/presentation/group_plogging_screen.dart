@@ -2,66 +2,27 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../data/mock_group_events.dart';
+import '../model/group_event.dart';
+import 'create_group_plogging_screen.dart';
+import 'group_plogging_detail_screen.dart';
 
 class GroupPloggingScreen extends StatelessWidget {
   const GroupPloggingScreen({super.key});
 
-  static const _green = Color(0xFF2E7D32);
-  static const _lightGreen = Color(0xFFE8F5E9);
-  static const _background = Color(0xFFF6F7F5);
-  static const _darkText = Color(0xFF1F2937);
-  static const _grayText = Color(0xFF6B7280);
-
-  static const _events = [
-    _GroupEvent(
-      title: '한강공원 아침 플로깅',
-      area: '서울 마포구',
-      date: '5월 28일',
-      time: '오전 8:00',
-      status: '모집중',
-      participants: '12/20명',
-      startPlace: '망원한강공원 2번 출구',
-      supplies: '장갑, 텀블러, 편한 운동화',
-    ),
-    _GroupEvent(
-      title: '도심 골목 정화 모임',
-      area: '서울 종로구',
-      date: '5월 30일',
-      time: '오후 6:30',
-      status: '마감임박',
-      participants: '17/18명',
-      startPlace: '종각역 4번 출구',
-      supplies: '집게, 개인 물병',
-    ),
-    _GroupEvent(
-      title: '주말 공원 가족 플로깅',
-      area: '경기 성남시',
-      date: '6월 1일',
-      time: '오전 10:00',
-      status: '모집중',
-      participants: '8/15명',
-      startPlace: '중앙공원 시계탑 앞',
-      supplies: '모자, 장갑, 작은 가방',
-    ),
-    _GroupEvent(
-      title: '퇴근길 하천 산책 플로깅',
-      area: '인천 연수구',
-      date: '6월 3일',
-      time: '오후 7:00',
-      status: '대기접수',
-      participants: '20/20명',
-      startPlace: '송도 센트럴파크 입구',
-      supplies: '야간 안전등, 장갑',
-    ),
-  ];
+  static const green = Color(0xFF2E7D32);
+  static const lightGreen = Color(0xFFE8F5E9);
+  static const background = Color(0xFFF6F7F5);
+  static const darkText = Color(0xFF1F2937);
+  static const grayText = Color(0xFF6B7280);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: background,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _handleCreatePressed(context),
-        backgroundColor: _green,
+        backgroundColor: green,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text(
@@ -80,15 +41,16 @@ class GroupPloggingScreen extends StatelessWidget {
             const Text(
               '모집 중인 단체 플로깅',
               style: TextStyle(
-                color: _darkText,
+                color: darkText,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 12),
-            for (final event in _events) ...[
+            for (final event in mockGroupEvents) ...[
               _GroupEventCard(
                 event: event,
+                onTap: () => _openDetailScreen(context, event),
                 onJoinPressed: () => _handleJoinPressed(context, event),
               ),
               const SizedBox(height: 14),
@@ -99,7 +61,15 @@ class GroupPloggingScreen extends StatelessWidget {
     );
   }
 
-  static void _handleJoinPressed(BuildContext context, _GroupEvent event) {
+  static void _openDetailScreen(BuildContext context, GroupEvent event) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => GroupPloggingDetailScreen(event: event),
+      ),
+    );
+  }
+
+  static void _handleJoinPressed(BuildContext context, GroupEvent event) {
     if (!mockAuthController.isLoggedIn) {
       _openLoginScreen(context);
       return;
@@ -109,8 +79,8 @@ class GroupPloggingScreen extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('참여 신청 완료'),
-          content: Text('${event.title}에 참여 신청했습니다.'),
+          title: const Text('참여 완료'),
+          content: Text('${event.title} 참여가 완료되었습니다.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -128,20 +98,10 @@ class GroupPloggingScreen extends StatelessWidget {
       return;
     }
 
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('단체 플로깅 만들기'),
-          content: const Text('단체 플로깅 생성 화면은 준비 중입니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const CreateGroupPloggingScreen(),
+      ),
     );
   }
 
@@ -159,32 +119,20 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GreenCard(
+    return const _GreenCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: GroupPloggingScreen._lightGreen,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.groups_outlined,
-              color: GroupPloggingScreen._green,
-              size: 26,
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
+          _IconBox(icon: Icons.groups_outlined),
+          SizedBox(width: 14),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '함께하는 플로깅',
                   style: TextStyle(
-                    color: GroupPloggingScreen._darkText,
+                    color: GroupPloggingScreen.darkText,
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     height: 1.2,
@@ -194,7 +142,7 @@ class _SummaryCard extends StatelessWidget {
                 Text(
                   '가까운 이웃과 일정을 맞춰 동네를 깨끗하게 걸어보세요.',
                   style: TextStyle(
-                    color: GroupPloggingScreen._grayText,
+                    color: GroupPloggingScreen.grayText,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     height: 1.45,
@@ -225,11 +173,7 @@ class _FilterArea extends StatelessWidget {
             value: '가까운 일정',
             icon: Icons.calendar_month,
           ),
-          _FilterChip(
-            label: '모집 상태 필터',
-            value: '모집 가능',
-            icon: Icons.tune,
-          ),
+          _FilterChip(label: '모집 상태 필터', value: '모집 가능', icon: Icons.tune),
         ],
       ),
     );
@@ -252,13 +196,13 @@ class _FilterChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: GroupPloggingScreen._background,
+        color: GroupPloggingScreen.background,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: GroupPloggingScreen._green, size: 18),
+          Icon(icon, color: GroupPloggingScreen.green, size: 18),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,7 +211,7 @@ class _FilterChip extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: GroupPloggingScreen._grayText,
+                  color: GroupPloggingScreen.grayText,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -276,7 +220,7 @@ class _FilterChip extends StatelessWidget {
               Text(
                 value,
                 style: const TextStyle(
-                  color: GroupPloggingScreen._darkText,
+                  color: GroupPloggingScreen.darkText,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -290,82 +234,99 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _GroupEventCard extends StatelessWidget {
-  const _GroupEventCard({required this.event, required this.onJoinPressed});
+  const _GroupEventCard({
+    required this.event,
+    required this.onTap,
+    required this.onJoinPressed,
+  });
 
-  final _GroupEvent event;
+  final GroupEvent event;
+  final VoidCallback onTap;
   final VoidCallback onJoinPressed;
 
   @override
   Widget build(BuildContext context) {
     return _GreenCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  event.title,
-                  style: const TextStyle(
-                    color: GroupPloggingScreen._darkText,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    height: 1.25,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: const TextStyle(
+                        color: GroupPloggingScreen.darkText,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _StatusBadge(status: event.status),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _InfoRow(
+                icon: Icons.place_outlined,
+                label: '지역',
+                value: event.area,
+              ),
+              _InfoRow(
+                icon: Icons.calendar_today_outlined,
+                label: '날짜',
+                value: event.date,
+              ),
+              _InfoRow(
+                icon: Icons.schedule_outlined,
+                label: '시간',
+                value: '${event.startTime} - ${event.endTime}',
+              ),
+              _InfoRow(
+                icon: Icons.people_outline,
+                label: '참여 인원',
+                value: event.participantText,
+              ),
+              _InfoRow(
+                icon: Icons.flag_outlined,
+                label: '출발 장소',
+                value: event.startPlace,
+              ),
+              _InfoRow(
+                icon: Icons.backpack_outlined,
+                label: '준비물',
+                value: event.supplies,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: onJoinPressed,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: GroupPloggingScreen.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    '참여하기',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              _StatusBadge(status: event.status),
             ],
           ),
-          const SizedBox(height: 14),
-          _InfoRow(icon: Icons.place_outlined, label: '지역', value: event.area),
-          _InfoRow(
-            icon: Icons.calendar_today_outlined,
-            label: '날짜',
-            value: event.date,
-          ),
-          _InfoRow(
-            icon: Icons.schedule_outlined,
-            label: '시간',
-            value: event.time,
-          ),
-          _InfoRow(
-            icon: Icons.people_outline,
-            label: '참여 인원',
-            value: event.participants,
-          ),
-          _InfoRow(
-            icon: Icons.flag_outlined,
-            label: '출발 장소',
-            value: event.startPlace,
-          ),
-          _InfoRow(
-            icon: Icons.backpack_outlined,
-            label: '준비물',
-            value: event.supplies,
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton(
-              onPressed: onJoinPressed,
-              style: FilledButton.styleFrom(
-                backgroundColor: GroupPloggingScreen._green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text(
-                '참여하기',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -381,13 +342,13 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: GroupPloggingScreen._lightGreen,
+        color: GroupPloggingScreen.lightGreen,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         status,
         style: const TextStyle(
-          color: GroupPloggingScreen._green,
+          color: GroupPloggingScreen.green,
           fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
@@ -414,14 +375,14 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: GroupPloggingScreen._green, size: 18),
+          Icon(icon, color: GroupPloggingScreen.green, size: 18),
           const SizedBox(width: 8),
           SizedBox(
             width: 72,
             child: Text(
               label,
               style: const TextStyle(
-                color: GroupPloggingScreen._grayText,
+                color: GroupPloggingScreen.grayText,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -431,7 +392,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                color: GroupPloggingScreen._darkText,
+                color: GroupPloggingScreen.darkText,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 height: 1.3,
@@ -444,15 +405,38 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _GreenCard extends StatelessWidget {
-  const _GreenCard({required this.child});
+class _IconBox extends StatelessWidget {
+  const _IconBox({required this.icon});
 
-  final Widget child;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: GroupPloggingScreen.lightGreen,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(icon, color: GroupPloggingScreen.green, size: 26),
+    );
+  }
+}
+
+class _GreenCard extends StatelessWidget {
+  const _GreenCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(18),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -467,26 +451,4 @@ class _GreenCard extends StatelessWidget {
       child: child,
     );
   }
-}
-
-class _GroupEvent {
-  const _GroupEvent({
-    required this.title,
-    required this.area,
-    required this.date,
-    required this.time,
-    required this.status,
-    required this.participants,
-    required this.startPlace,
-    required this.supplies,
-  });
-
-  final String title;
-  final String area;
-  final String date;
-  final String time;
-  final String status;
-  final String participants;
-  final String startPlace;
-  final String supplies;
 }
