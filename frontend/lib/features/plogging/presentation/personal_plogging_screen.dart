@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import 'plogging_result_screen.dart';
 
 class PersonalPloggingScreen extends StatefulWidget {
   const PersonalPloggingScreen({super.key});
@@ -13,7 +14,7 @@ class PersonalPloggingScreen extends StatefulWidget {
 class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
   bool _isStarted = false;
   bool _isPaused = false;
-  int _trashCount = 0;
+  int _trashCertificationCount = 0;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -25,6 +26,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
     setState(() {
       _isStarted = true;
       _isPaused = false;
+      _trashCertificationCount = 0;
     });
   }
 
@@ -34,12 +36,48 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
     });
   }
 
-  void _finishPlogging() {
+  Future<void> _finishPlogging() async {
+    if (!_isStarted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('먼저 플로깅을 시작해 주세요.')));
+      return;
+    }
+
+    final shouldFinish = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('플로깅을 종료할까요?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('종료하기'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldFinish != true || !mounted) {
+      return;
+    }
+
     setState(() {
       _isStarted = false;
       _isPaused = false;
-      _trashCount = 0;
+      _trashCertificationCount = 0;
     });
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const PloggingResultScreen(),
+      ),
+    );
   }
 
   void _showTrashRegistrationSheet() {
@@ -54,7 +92,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
         return _TrashRegistrationSheet(
           onRegister: () {
             setState(() {
-              _trashCount++;
+              _trashCertificationCount++;
             });
           },
         );
@@ -97,7 +135,10 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
                 const _MapPlaceholderCard(),
                 const SizedBox(height: 18),
                 if (_isStarted) ...[
-                  _StatusCard(isPaused: _isPaused, trashCount: _trashCount),
+                  _StatusCard(
+                    isPaused: _isPaused,
+                    trashCertificationCount: _trashCertificationCount,
+                  ),
                   const SizedBox(height: 18),
                   _ActionButtons(
                     isPaused: _isPaused,
@@ -210,7 +251,7 @@ class _ScreenHeader extends StatelessWidget {
         ),
         SizedBox(height: 6),
         Text(
-          '가볍게 시작하고 활동 기록을 남겨보세요.',
+          '가볍게 시작하고 오늘의 활동을 기록해 보세요.',
           style: TextStyle(
             color: _PersonalPloggingScreenState._grayText,
             fontSize: 14,
@@ -265,7 +306,7 @@ class _MapPlaceholderCard extends StatelessWidget {
             ),
             SizedBox(height: 6),
             Text(
-              '실제 지도와 GPS는 추후 연결 예정',
+              '실제 GPS와 지도는 이후 연결됩니다.',
               style: TextStyle(
                 color: _PersonalPloggingScreenState._grayText,
                 fontSize: 13,
@@ -280,10 +321,13 @@ class _MapPlaceholderCard extends StatelessWidget {
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.isPaused, required this.trashCount});
+  const _StatusCard({
+    required this.isPaused,
+    required this.trashCertificationCount,
+  });
 
   final bool isPaused;
-  final int trashCount;
+  final int trashCertificationCount;
 
   @override
   Widget build(BuildContext context) {
@@ -340,9 +384,9 @@ class _StatusCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _StatusMetric(
-                  icon: Icons.delete_outline,
-                  value: '$trashCount개',
-                  label: '수거한 쓰레기',
+                  icon: Icons.add_a_photo_outlined,
+                  value: '$trashCertificationCount개',
+                  label: '사진 인증',
                 ),
               ),
             ],
@@ -532,11 +576,21 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '쓰레기 인증 등록',
+              '쓰레기 사진 인증',
               style: TextStyle(
                 color: _PersonalPloggingScreenState._darkText,
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '사진 인증을 먼저 남기고, 종류와 개수는 필요할 때만 입력하세요.',
+              style: TextStyle(
+                color: _PersonalPloggingScreenState._grayText,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 18),
@@ -546,8 +600,8 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _trashType,
-              decoration: _inputDecoration('쓰레기 종류 선택'),
-              hint: const Text('선택'),
+              decoration: _inputDecoration('쓰레기 종류'),
+              hint: const Text('선택 안 함'),
               items: const [
                 DropdownMenuItem(value: '플라스틱', child: Text('플라스틱')),
                 DropdownMenuItem(value: '캔', child: Text('캔')),
@@ -564,15 +618,15 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
             const SizedBox(height: 12),
             TextField(
               keyboardType: TextInputType.number,
-              decoration: _inputDecoration('개수 선택'),
+              decoration: _inputDecoration('개수'),
             ),
             const SizedBox(height: 12),
             TextField(
               keyboardType: TextInputType.number,
-              decoration: _inputDecoration('예상 무게 선택'),
+              decoration: _inputDecoration('예상 무게'),
             ),
             const SizedBox(height: 12),
-            TextField(maxLines: 3, decoration: _inputDecoration('메모 선택')),
+            TextField(maxLines: 3, decoration: _inputDecoration('메모')),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -582,7 +636,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
                   widget.onRegister();
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('쓰레기 인증을 등록했습니다.')),
+                    const SnackBar(content: Text('사진 인증이 등록되었습니다.')),
                   );
                 },
                 style: FilledButton.styleFrom(
@@ -593,7 +647,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
                   ),
                 ),
                 child: const Text(
-                  '인증 등록하기',
+                  '사진 인증 등록하기',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
               ),
@@ -649,7 +703,7 @@ class _PhotoCertificationCard extends StatelessWidget {
                 ),
                 SizedBox(height: 10),
                 Text(
-                  '사진으로 간단히 인증해 주세요',
+                  '사진으로 간단히 인증해 주세요.',
                   style: TextStyle(
                     color: _PersonalPloggingScreenState._darkText,
                     fontSize: 15,
@@ -666,7 +720,7 @@ class _PhotoCertificationCard extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('카메라 연결은 추후 제공됩니다.')),
+                  const SnackBar(content: Text('카메라 연결은 이후 제공됩니다.')),
                 );
               },
               icon: const Icon(Icons.photo_camera_outlined),
