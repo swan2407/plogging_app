@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
-import '../../activity_records/data/mock_activity_record_store.dart';
-import '../../activity_records/model/activity_record.dart';
+import '../data/mock_my_page_data.dart';
+import '../model/my_page_models.dart';
+import '../../plogging/data/mock_activity_record_store.dart';
+import '../../plogging/model/activity_record.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key, this.popAfterLogout = false});
@@ -205,13 +207,6 @@ class _ProfileMetric extends StatelessWidget {
 class _QuickStatsGrid extends StatelessWidget {
   const _QuickStatsGrid();
 
-  static const _stats = [
-    _QuickStat('이번 달 플로깅', '7회', Icons.calendar_month_outlined),
-    _QuickStat('총 이동 거리', '74.6km', Icons.route_outlined),
-    _QuickStat('쓰레기 인증 수', '156개', Icons.delete_outline),
-    _QuickStat('참여한 단체 플로깅 수', '5회', Icons.groups_outlined),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return GridView.count(
@@ -221,7 +216,9 @@ class _QuickStatsGrid extends StatelessWidget {
       childAspectRatio: 1.62,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      children: [for (final stat in _stats) _QuickStatCard(stat: stat)],
+      children: [
+        for (final stat in mockMyPageStats) _QuickStatCard(stat: stat),
+      ],
     );
   }
 }
@@ -229,7 +226,7 @@ class _QuickStatsGrid extends StatelessWidget {
 class _QuickStatCard extends StatelessWidget {
   const _QuickStatCard({required this.stat});
 
-  final _QuickStat stat;
+  final MyPageStat stat;
 
   @override
   Widget build(BuildContext context) {
@@ -423,18 +420,15 @@ class _EmptyActivityRecordState extends StatelessWidget {
 class _JoinedGroupPloggingSection extends StatelessWidget {
   const _JoinedGroupPloggingSection();
 
-  static const _items = [
-    _GroupPlogging('한강공원 저녁 플로깅', '2026.05.30', '서울 마포구', '참여 예정'),
-    _GroupPlogging('홍대 골목 정리 모임', '2026.05.18', '서울 마포구', '완료'),
-    _GroupPlogging('월드컵공원 주말 플로깅', '2026.05.11', '서울 상암동', '완료'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return _MyPageSection(
       title: '참여한 단체 플로깅',
       icon: Icons.groups_outlined,
-      children: [for (final item in _items) _GroupPloggingTile(item: item)],
+      children: [
+        for (final item in mockJoinedGroupPloggings)
+          _GroupPloggingTile(item: item),
+      ],
     );
   }
 }
@@ -442,7 +436,7 @@ class _JoinedGroupPloggingSection extends StatelessWidget {
 class _GroupPloggingTile extends StatelessWidget {
   const _GroupPloggingTile({required this.item});
 
-  final _GroupPlogging item;
+  final JoinedGroupPlogging item;
 
   @override
   Widget build(BuildContext context) {
@@ -502,18 +496,12 @@ class _GroupPloggingTile extends StatelessWidget {
 class _MyPostsSection extends StatelessWidget {
   const _MyPostsSection();
 
-  static const _posts = [
-    _MyPost('오늘 주운 병뚜껑만 20개예요', '2026.05.24', 18, 4),
-    _MyPost('초보 플로거를 위한 준비물', '2026.05.12', 31, 9),
-    _MyPost('마포 산책로 쓰레기 지도 공유', '2026.05.03', 24, 6),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return _MyPageSection(
       title: '내가 쓴 글',
       icon: Icons.article_outlined,
-      children: [for (final post in _posts) _MyPostTile(post: post)],
+      children: [for (final post in mockMyPagePosts) _MyPostTile(post: post)],
     );
   }
 }
@@ -521,7 +509,7 @@ class _MyPostsSection extends StatelessWidget {
 class _MyPostTile extends StatelessWidget {
   const _MyPostTile({required this.post});
 
-  final _MyPost post;
+  final MyPagePost post;
 
   @override
   Widget build(BuildContext context) {
@@ -818,30 +806,4 @@ class _StatusPill extends StatelessWidget {
       ),
     );
   }
-}
-
-class _QuickStat {
-  const _QuickStat(this.label, this.value, this.icon);
-
-  final String label;
-  final String value;
-  final IconData icon;
-}
-
-class _GroupPlogging {
-  const _GroupPlogging(this.title, this.date, this.region, this.status);
-
-  final String title;
-  final String date;
-  final String region;
-  final String status;
-}
-
-class _MyPost {
-  const _MyPost(this.title, this.createdDate, this.likes, this.comments);
-
-  final String title;
-  final String createdDate;
-  final int likes;
-  final int comments;
 }

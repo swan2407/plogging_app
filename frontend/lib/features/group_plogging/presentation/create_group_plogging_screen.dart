@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/korea_regions.dart';
+import '../data/mock_group_place_data.dart';
 
 class CreateGroupPloggingScreen extends StatefulWidget {
   const CreateGroupPloggingScreen({super.key});
@@ -29,7 +30,6 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
   static const _background = Color(0xFFF6F7F5);
   static const _darkText = Color(0xFF1F2937);
   static const _grayText = Color(0xFF6B7280);
-  static const _mockPlaceName = '아주대학교 정문';
 
   String? get _selectedRegion {
     if (_selectedSido == null || _selectedSigungu == null) {
@@ -434,11 +434,11 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
               onPressed: () {
                 // lat/lng/address will be added when the map API is connected.
                 setState(() {
-                  _selectedPlace = _mockPlaceName;
+                  _selectedPlace = mockGroupStartPlaceName;
                 });
                 Navigator.of(context).pop();
               },
-              child: const Text('아주대학교 정문 선택'),
+              child: Text('$mockGroupStartPlaceName 선택'),
             ),
           ],
         );

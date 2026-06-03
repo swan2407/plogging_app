@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
+import '../data/mock_home_dashboard_data.dart';
+import '../model/home_dashboard_models.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.onLoginPressed});
@@ -143,43 +145,31 @@ class _TodayPloggingCard extends StatelessWidget {
     return _DashboardCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           _SectionHeader(
             icon: Icons.eco_outlined,
             title: '오늘의 플로깅',
-            actionText: '5월 25일',
+            actionText: todayPloggingDateText,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.directions_walk,
-                  value: '2.4 km',
-                  label: '추천 거리',
+              for (
+                var index = 0;
+                index < todayPloggingMetrics.length;
+                index++
+              ) ...[
+                Expanded(
+                  child: _MetricTile(metric: todayPloggingMetrics[index]),
                 ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.delete_outline,
-                  value: '12개',
-                  label: '목표 수거',
-                ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.schedule,
-                  value: '35분',
-                  label: '예상 시간',
-                ),
-              ),
+                if (index != todayPloggingMetrics.length - 1)
+                  const SizedBox(width: 10),
+              ],
             ],
           ),
-          SizedBox(height: 16),
-          Text(
-            '가까운 공원 코스를 따라 가볍게 시작해보세요.',
+          const SizedBox(height: 16),
+          const Text(
+            todayPloggingDescription,
             style: TextStyle(
               color: HomeScreen._grayText,
               fontSize: 14,
@@ -225,21 +215,14 @@ class _ScheduleSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _DashboardSection(
+    return _DashboardSection(
       title: '플로깅 일정',
       icon: Icons.calendar_month_outlined,
       children: [
-        _ListItem(
-          icon: Icons.park_outlined,
-          title: '한강 산책로 플로깅',
-          subtitle: '오늘 오후 6:30 · 마포구',
-        ),
-        SizedBox(height: 10),
-        _ListItem(
-          icon: Icons.local_florist_outlined,
-          title: '주말 공원 정리',
-          subtitle: '토요일 오전 9:00 · 서대문구',
-        ),
+        for (var index = 0; index < homeScheduleItems.length; index++) ...[
+          _ListItem(item: homeScheduleItems[index]),
+          if (index != homeScheduleItems.length - 1) const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -250,21 +233,15 @@ class _GroupPreviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _DashboardSection(
+    return _DashboardSection(
       title: '주변 단체 플로깅',
       icon: Icons.groups_outlined,
       children: [
-        _ListItem(
-          icon: Icons.location_on_outlined,
-          title: '연남동 골목 플로깅',
-          subtitle: '8명 참여 예정 · 1.2km 거리',
-        ),
-        SizedBox(height: 10),
-        _ListItem(
-          icon: Icons.location_on_outlined,
-          title: '홍제천 환경 모임',
-          subtitle: '모집중 12/20 · 내일 오후 7:00',
-        ),
+        for (var index = 0; index < homeGroupPreviewItems.length; index++) ...[
+          _ListItem(item: homeGroupPreviewItems[index]),
+          if (index != homeGroupPreviewItems.length - 1)
+            const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -275,21 +252,15 @@ class _CommunitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _DashboardSection(
+    return _DashboardSection(
       title: '최근 커뮤니티 글',
       icon: Icons.chat_bubble_outline,
       children: [
-        _ListItem(
-          icon: Icons.article_outlined,
-          title: '오늘 수거한 캔이 정말 많았어요',
-          subtitle: '마포구 · 댓글 3개',
-        ),
-        SizedBox(height: 10),
-        _ListItem(
-          icon: Icons.article_outlined,
-          title: '처음 플로깅을 시작하는 분들께',
-          subtitle: '서대문구 · 좋아요 18개',
-        ),
+        for (var index = 0; index < homeCommunityItems.length; index++) ...[
+          _ListItem(item: homeCommunityItems[index]),
+          if (index != homeCommunityItems.length - 1)
+            const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -399,15 +370,9 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
+  const _MetricTile({required this.metric});
 
-  final IconData icon;
-  final String value;
-  final String label;
+  final HomeMetric metric;
 
   @override
   Widget build(BuildContext context) {
@@ -419,10 +384,10 @@ class _MetricTile extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: HomeScreen._green, size: 22),
+          Icon(metric.icon, color: HomeScreen._green, size: 22),
           const SizedBox(height: 8),
           Text(
-            value,
+            metric.value,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: HomeScreen._darkText,
@@ -432,7 +397,7 @@ class _MetricTile extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            label,
+            metric.label,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: HomeScreen._grayText,
@@ -447,15 +412,9 @@ class _MetricTile extends StatelessWidget {
 }
 
 class _ListItem extends StatelessWidget {
-  const _ListItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _ListItem({required this.item});
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final HomeListItemData item;
 
   @override
   Widget build(BuildContext context) {
@@ -474,7 +433,7 @@ class _ListItem extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(icon, color: HomeScreen._green, size: 21),
+            child: Icon(item.icon, color: HomeScreen._green, size: 21),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -482,7 +441,7 @@ class _ListItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -493,7 +452,7 @@ class _ListItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  item.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

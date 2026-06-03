@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../data/mock_map_data.dart';
+import '../model/map_models.dart';
+
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -15,10 +18,10 @@ class _MapScreenState extends State<MapScreen> {
   static const _grayText = Color(0xFF6B7280);
   static const _inactive = Color(0xFFE5E7EB);
 
-  final Set<_MapLayer> _activeLayers = {_MapLayer.groupPlogging};
+  final Set<MapLayer> _activeLayers = {MapLayer.groupPlogging};
 
-  List<_MockMarker> get _visibleMarkers {
-    return _mockMarkers
+  List<MapMarker> get _visibleMarkers {
+    return mockMapMarkers
         .where((marker) => _activeLayers.contains(marker.layer))
         .toList();
   }
@@ -28,14 +31,14 @@ class _MapScreenState extends State<MapScreen> {
       return '표시 중: 없음';
     }
 
-    final selectedLabels = _layers
+    final selectedLabels = mapLayers
         .where((layer) => _activeLayers.contains(layer.layer))
         .map((layer) => layer.label)
         .join(', ');
     return '표시 중: $selectedLabels';
   }
 
-  void _toggleLayer(_MapLayer layer) {
+  void _toggleLayer(MapLayer layer) {
     setState(() {
       if (_activeLayers.contains(layer)) {
         _activeLayers.remove(layer);
@@ -228,8 +231,8 @@ class _LayerToggleCard extends StatelessWidget {
     required this.onLayerPressed,
   });
 
-  final Set<_MapLayer> activeLayers;
-  final ValueChanged<_MapLayer> onLayerPressed;
+  final Set<MapLayer> activeLayers;
+  final ValueChanged<MapLayer> onLayerPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +246,7 @@ class _LayerToggleCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (final layer in _layers)
+              for (final layer in mapLayers)
                 _LayerToggleChip(
                   layer: layer,
                   selected: activeLayers.contains(layer.layer),
@@ -264,7 +267,7 @@ class _LayerToggleChip extends StatelessWidget {
     required this.onPressed,
   });
 
-  final _LayerConfig layer;
+  final MapLayerConfig layer;
   final bool selected;
   final VoidCallback onPressed;
 
@@ -362,7 +365,7 @@ class _LocationSummaryCard extends StatelessWidget {
 class _MarkerListSection extends StatelessWidget {
   const _MarkerListSection({required this.markers});
 
-  final List<_MockMarker> markers;
+  final List<MapMarker> markers;
 
   @override
   Widget build(BuildContext context) {
@@ -388,11 +391,11 @@ class _MarkerListSection extends StatelessWidget {
 class _MarkerListItem extends StatelessWidget {
   const _MarkerListItem({required this.marker});
 
-  final _MockMarker marker;
+  final MapMarker marker;
 
   @override
   Widget build(BuildContext context) {
-    final layer = _layers.firstWhere((item) => item.layer == marker.layer);
+    final layer = mapLayers.firstWhere((item) => item.layer == marker.layer);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -607,105 +610,3 @@ class _SummaryTile extends StatelessWidget {
     );
   }
 }
-
-enum _MapLayer { groupPlogging, trashRecord, recyclingStation, publicTrashCan }
-
-class _LayerConfig {
-  const _LayerConfig({
-    required this.layer,
-    required this.label,
-    required this.icon,
-  });
-
-  final _MapLayer layer;
-  final String label;
-  final IconData icon;
-}
-
-class _MockMarker {
-  const _MockMarker({
-    required this.layer,
-    required this.title,
-    required this.address,
-    required this.distance,
-  });
-
-  final _MapLayer layer;
-  final String title;
-  final String address;
-  final String distance;
-}
-
-const _layers = [
-  _LayerConfig(
-    layer: _MapLayer.groupPlogging,
-    label: '단체 플로깅',
-    icon: Icons.groups_outlined,
-  ),
-  _LayerConfig(
-    layer: _MapLayer.trashRecord,
-    label: '쓰레기 기록',
-    icon: Icons.delete_outline,
-  ),
-  _LayerConfig(
-    layer: _MapLayer.recyclingStation,
-    label: '분리수거장',
-    icon: Icons.recycling_outlined,
-  ),
-  _LayerConfig(
-    layer: _MapLayer.publicTrashCan,
-    label: '공공 쓰레기통',
-    icon: Icons.delete_sweep_outlined,
-  ),
-];
-
-const _mockMarkers = [
-  _MockMarker(
-    layer: _MapLayer.groupPlogging,
-    title: '상암 하늘공원 저녁 플로깅',
-    address: '서울 마포구 하늘공원로',
-    distance: '450m',
-  ),
-  _MockMarker(
-    layer: _MapLayer.groupPlogging,
-    title: '홍대입구 골목 정화 모임',
-    address: '서울 마포구 양화로',
-    distance: '1.1km',
-  ),
-  _MockMarker(
-    layer: _MapLayer.trashRecord,
-    title: '담배꽁초 집중 발견 구역',
-    address: '서울 마포구 월드컵북로',
-    distance: '320m',
-  ),
-  _MockMarker(
-    layer: _MapLayer.trashRecord,
-    title: '일회용 컵 수거 기록',
-    address: '서울 마포구 성미산로',
-    distance: '780m',
-  ),
-  _MockMarker(
-    layer: _MapLayer.recyclingStation,
-    title: '망원1동 분리수거장',
-    address: '서울 마포구 포은로',
-    distance: '620m',
-  ),
-  _MockMarker(
-    layer: _MapLayer.recyclingStation,
-    title: '상수역 재활용 수거함',
-    address: '서울 마포구 독막로',
-    distance: '1.4km',
-  ),
-  _MockMarker(
-    layer: _MapLayer.publicTrashCan,
-    title: '망원한강공원 공공 쓰레기통',
-    address: '서울 마포구 마포나루길',
-    distance: '950m',
-  ),
-  _MockMarker(
-    layer: _MapLayer.publicTrashCan,
-    title: '합정역 6번 출구 쓰레기통',
-    address: '서울 마포구 양화로',
-    distance: '1.7km',
-  ),
-];

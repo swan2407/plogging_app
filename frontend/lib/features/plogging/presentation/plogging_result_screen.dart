@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../activity_records/data/mock_activity_record_store.dart';
-import '../../activity_records/model/activity_record.dart';
 import '../../community/presentation/community_post_create_screen.dart';
+import '../data/mock_activity_record_store.dart';
+import '../data/mock_plogging_result_data.dart';
+import '../model/activity_record.dart';
 
 class PloggingResultScreen extends StatefulWidget {
   const PloggingResultScreen({super.key});
@@ -12,12 +13,6 @@ class PloggingResultScreen extends StatefulWidget {
   static const _background = Color(0xFFF6F7F5);
   static const _darkText = Color(0xFF1F2937);
   static const _grayText = Color(0xFF6B7280);
-
-  static const _duration = '42분';
-  static const _distance = '2.4km';
-  static const _trashCertifications = '3개';
-  static const _region = '경기 수원시';
-  static const _trashCertificationCount = 3;
 
   @override
   State<PloggingResultScreen> createState() => _PloggingResultScreenState();
@@ -43,11 +38,12 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
         id: 'personal-${DateTime.now().microsecondsSinceEpoch}',
         type: '개인',
         date: _activityDate,
-        region: PloggingResultScreen._region,
-        duration: PloggingResultScreen._duration,
-        distance: PloggingResultScreen._distance,
-        trashCertificationCount: PloggingResultScreen._trashCertificationCount,
-        summary: '개인 플로깅 활동 요약',
+        region: mockPloggingResultSummary.region,
+        duration: mockPloggingResultSummary.duration,
+        distance: mockPloggingResultSummary.distance,
+        trashCertificationCount:
+            mockPloggingResultSummary.trashCertificationCount,
+        summary: mockPloggingResultSummary.summary,
       ),
     );
 
@@ -62,9 +58,10 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
 
   void _shareToCommunity(BuildContext context) {
     final summary =
-        '${PloggingResultScreen._duration} · ${PloggingResultScreen._distance} · '
-        '쓰레기 인증 ${PloggingResultScreen._trashCertifications} · '
-        '${PloggingResultScreen._region}';
+        '${mockPloggingResultSummary.duration} · '
+        '${mockPloggingResultSummary.distance} · '
+        '쓰레기 인증 ${mockPloggingResultSummary.trashCertifications} · '
+        '${mockPloggingResultSummary.region}';
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -72,11 +69,11 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
           initialCategory: '활동 후기',
           initialTitle: '오늘 플로깅 완료!',
           initialContent:
-              '오늘 ${PloggingResultScreen._region}에서 '
-              '${PloggingResultScreen._duration} 동안 '
-              '${PloggingResultScreen._distance}를 걸으며 플로깅을 완료했어요. '
-              '쓰레기 인증은 ${PloggingResultScreen._trashCertifications} 남겼습니다.',
-          initialRegion: PloggingResultScreen._region,
+              '오늘 ${mockPloggingResultSummary.region}에서 '
+              '${mockPloggingResultSummary.duration} 동안 '
+              '${mockPloggingResultSummary.distance}를 걸으며 플로깅을 완료했어요. '
+              '쓰레기 인증은 ${mockPloggingResultSummary.trashCertifications} 남겼습니다.',
+          initialRegion: mockPloggingResultSummary.region,
           linkedActivitySummary: summary,
           returnToRootOnSubmit: true,
         ),
@@ -183,25 +180,25 @@ class _SummaryCard extends StatelessWidget {
             label: '활동 날짜',
             value: activityDate,
           ),
-          const _InfoRow(
+          _InfoRow(
             icon: Icons.schedule_outlined,
             label: '활동 시간',
-            value: PloggingResultScreen._duration,
+            value: mockPloggingResultSummary.duration,
           ),
-          const _InfoRow(
+          _InfoRow(
             icon: Icons.route_outlined,
             label: '이동 거리',
-            value: PloggingResultScreen._distance,
+            value: mockPloggingResultSummary.distance,
           ),
-          const _InfoRow(
+          _InfoRow(
             icon: Icons.add_a_photo_outlined,
             label: '쓰레기 인증',
-            value: PloggingResultScreen._trashCertifications,
+            value: mockPloggingResultSummary.trashCertifications,
           ),
-          const _InfoRow(
+          _InfoRow(
             icon: Icons.location_on_outlined,
             label: '활동 지역',
-            value: PloggingResultScreen._region,
+            value: mockPloggingResultSummary.region,
             showDivider: false,
           ),
         ],
@@ -315,7 +312,9 @@ class _ResultActions extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: isSaved ? null : onSavePressed,
             icon: Icon(
-              isSaved ? Icons.check_circle_outline : Icons.bookmark_add_outlined,
+              isSaved
+                  ? Icons.check_circle_outline
+                  : Icons.bookmark_add_outlined,
             ),
             label: Text(isSaved ? '저장 완료' : '활동 기록 저장하기'),
             style: FilledButton.styleFrom(

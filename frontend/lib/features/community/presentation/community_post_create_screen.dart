@@ -141,7 +141,10 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SectionTitle(icon: Icons.category_outlined, title: '카테고리'),
+                  const _SectionTitle(
+                    icon: Icons.category_outlined,
+                    title: '카테고리',
+                  ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 10,
@@ -171,7 +174,10 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SectionTitle(icon: Icons.edit_outlined, title: '게시글 내용'),
+                  const _SectionTitle(
+                    icon: Icons.edit_outlined,
+                    title: '게시글 내용',
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _titleController,
