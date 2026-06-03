@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../activity_records/data/mock_activity_record_store.dart';
 import '../../activity_records/model/activity_record.dart';
+import '../../community/presentation/community_post_create_screen.dart';
 
 class PloggingResultScreen extends StatefulWidget {
   const PloggingResultScreen({super.key});
@@ -60,20 +61,26 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
   }
 
   void _shareToCommunity(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('커뮤니티 공유'),
-          content: const Text('커뮤니티 공유 기능은 이후 연결됩니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
+    final summary =
+        '${PloggingResultScreen._duration} · ${PloggingResultScreen._distance} · '
+        '쓰레기 인증 ${PloggingResultScreen._trashCertifications} · '
+        '${PloggingResultScreen._region}';
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => CommunityPostCreateScreen(
+          initialCategory: '활동 후기',
+          initialTitle: '오늘 플로깅 완료!',
+          initialContent:
+              '오늘 ${PloggingResultScreen._region}에서 '
+              '${PloggingResultScreen._duration} 동안 '
+              '${PloggingResultScreen._distance}를 걸으며 플로깅을 완료했어요. '
+              '쓰레기 인증은 ${PloggingResultScreen._trashCertifications} 남겼습니다.',
+          initialRegion: PloggingResultScreen._region,
+          linkedActivitySummary: summary,
+          returnToRootOnSubmit: true,
+        ),
+      ),
     );
   }
 

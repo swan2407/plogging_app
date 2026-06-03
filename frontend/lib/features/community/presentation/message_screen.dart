@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../data/mock_community_post_store.dart';
+import '../model/community_post.dart';
+import 'community_post_create_screen.dart';
 
 class MessageScreen extends StatefulWidget {
   const MessageScreen({super.key});
@@ -20,14 +23,12 @@ class _MessageScreenState extends State<MessageScreen> {
 
   String _selectedCategory = '전체';
 
-  List<_CommunityPost> get _visiblePosts {
+  List<CommunityPost> _visiblePosts(List<CommunityPost> posts) {
     if (_selectedCategory == '전체') {
-      return _mockPosts;
+      return posts;
     }
 
-    return _mockPosts
-        .where((post) => post.category == _selectedCategory)
-        .toList();
+    return posts.where((post) => post.category == _selectedCategory).toList();
   }
 
   void _selectCategory(String category) {
@@ -46,63 +47,64 @@ class _MessageScreenState extends State<MessageScreen> {
       return;
     }
 
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('글쓰기'),
-          content: const Text('게시글 작성 기능은 이후 연결 예정입니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const CommunityPostCreateScreen(
+          initialCategory: '활동 후기',
+          initialRegion: '서울 마포구',
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final visiblePosts = _visiblePosts;
-
     return Scaffold(
       backgroundColor: _background,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-          children: [
-            const _CommunitySummaryCard(),
-            const SizedBox(height: 18),
-            _CategoryFilterCard(
-              selectedCategory: _selectedCategory,
-              onCategoryPressed: _selectCategory,
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              height: 56,
-              child: FilledButton.icon(
-                onPressed: _onWritePressed,
-                icon: const Icon(Icons.edit_outlined, size: 22),
-                label: const Text(
-                  '글쓰기',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        child: ValueListenableBuilder<List<CommunityPost>>(
+          valueListenable: mockCommunityPostStore.postsListenable,
+          builder: (context, posts, child) {
+            final visiblePosts = _visiblePosts(posts);
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              children: [
+                const _CommunitySummaryCard(),
+                const SizedBox(height: 18),
+                _CategoryFilterCard(
+                  selectedCategory: _selectedCategory,
+                  onCategoryPressed: _selectCategory,
                 ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  elevation: 8,
-                  shadowColor: _green.withValues(alpha: 0.26),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 56,
+                  child: FilledButton.icon(
+                    onPressed: _onWritePressed,
+                    icon: const Icon(Icons.edit_outlined, size: 22),
+                    label: const Text(
+                      '글쓰기',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _green,
+                      foregroundColor: Colors.white,
+                      elevation: 8,
+                      shadowColor: _green.withValues(alpha: 0.26),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _PostListSection(posts: visiblePosts),
-          ],
+                const SizedBox(height: 24),
+                _PostListSection(posts: visiblePosts),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -184,7 +186,7 @@ class _CategoryFilterCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (final category in _categories)
+              for (final category in communityPostFilterCategories)
                 _CategoryChip(
                   label: category,
                   selected: selectedCategory == category,
@@ -244,7 +246,7 @@ class _CategoryChip extends StatelessWidget {
 class _PostListSection extends StatelessWidget {
   const _PostListSection({required this.posts});
 
-  final List<_CommunityPost> posts;
+  final List<CommunityPost> posts;
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +272,7 @@ class _PostListSection extends StatelessWidget {
 class _PostCard extends StatelessWidget {
   const _PostCard({required this.post});
 
-  final _CommunityPost post;
+  final CommunityPost post;
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +330,7 @@ class _PostCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            post.preview,
+            post.content,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -368,7 +370,7 @@ class _PostCard extends StatelessWidget {
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  post.author,
+                  post.authorNickname,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -504,80 +506,3 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
-
-class _CommunityPost {
-  const _CommunityPost({
-    required this.category,
-    required this.title,
-    required this.preview,
-    required this.region,
-    required this.author,
-    required this.createdDate,
-    required this.likeCount,
-    required this.commentCount,
-  });
-
-  final String category;
-  final String title;
-  final String preview;
-  final String region;
-  final String author;
-  final String createdDate;
-  final int likeCount;
-  final int commentCount;
-}
-
-const _categories = ['전체', '활동 후기', '모집 홍보', '정보 공유', '질문'];
-
-const _mockPosts = [
-  _CommunityPost(
-    category: '활동 후기',
-    title: '망원한강공원에서 40분 플로깅했어요',
-    preview: '산책로 주변에 일회용 컵이 많아서 집중적으로 주웠습니다. 다음에는 장갑을 더 챙겨가려고요.',
-    region: '서울 마포구',
-    author: '초록걸음',
-    createdDate: '5월 26일',
-    likeCount: 24,
-    commentCount: 6,
-  ),
-  _CommunityPost(
-    category: '모집 홍보',
-    title: '이번 토요일 상암동 단체 플로깅 함께해요',
-    preview: '오전 10시에 월드컵공원 입구에서 모입니다. 봉투와 집게는 여분을 준비해둘게요.',
-    region: '서울 마포구 상암동',
-    author: '마포러너',
-    createdDate: '5월 25일',
-    likeCount: 31,
-    commentCount: 12,
-  ),
-  _CommunityPost(
-    category: '정보 공유',
-    title: '분리수거 가능한 투명 페트병 기준 정리',
-    preview: '라벨을 제거하고 내용물을 비운 뒤 압착하면 수거 효율이 좋아진다고 합니다.',
-    region: '서울 전역',
-    author: '재활용노트',
-    createdDate: '5월 24일',
-    likeCount: 48,
-    commentCount: 9,
-  ),
-  _CommunityPost(
-    category: '질문',
-    title: '비 오는 날에도 플로깅 모임 진행하시나요?',
-    preview: '이번 주 예보가 애매해서 다른 분들은 어떤 기준으로 취소 여부를 정하는지 궁금합니다.',
-    region: '서울 서대문구',
-    author: '걷는사람',
-    createdDate: '5월 23일',
-    likeCount: 11,
-    commentCount: 8,
-  ),
-  _CommunityPost(
-    category: '활동 후기',
-    title: '홍대 골목길 담배꽁초 수거 후기',
-    preview: '짧은 거리였지만 생각보다 수거량이 많았습니다. 주변 상점 분들이 응원해주셔서 힘이 났어요.',
-    region: '서울 마포구 홍대입구',
-    author: '골목지킴이',
-    createdDate: '5월 22일',
-    likeCount: 37,
-    commentCount: 5,
-  ),
-];
