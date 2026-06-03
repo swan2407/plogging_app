@@ -49,6 +49,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('플로깅을 종료할까요?'),
+          content: const Text('현재까지의 활동 기록과 쓰레기 인증 내역이 요약됩니다.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),

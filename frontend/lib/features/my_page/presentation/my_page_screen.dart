@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
+import '../../activity_records/data/mock_activity_record_store.dart';
+import '../../activity_records/model/activity_record.dart';
 
 class MyPageScreen extends StatelessWidget {
   const MyPageScreen({super.key, this.popAfterLogout = false});
@@ -284,20 +286,22 @@ class _QuickStatCard extends StatelessWidget {
 class _ActivityRecordsSection extends StatelessWidget {
   const _ActivityRecordsSection();
 
-  static const _records = [
-    _ActivityRecord('2026.05.25', '개인', '3.2km', '42분', '8개'),
-    _ActivityRecord('2026.05.18', '단체', '5.4km', '1시간 12분', '21개'),
-    _ActivityRecord('2026.05.09', '개인', '2.6km', '35분', '6개'),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return _MyPageSection(
-      title: '나의 활동 기록',
-      icon: Icons.directions_walk_outlined,
-      children: [
-        for (final record in _records) _ActivityRecordTile(record: record),
-      ],
+    return ValueListenableBuilder<List<ActivityRecord>>(
+      valueListenable: mockActivityRecordStore.recordsListenable,
+      builder: (context, records, child) {
+        return _MyPageSection(
+          title: '나의 활동 기록',
+          icon: Icons.directions_walk_outlined,
+          children: records.isEmpty
+              ? const [_EmptyActivityRecordState()]
+              : [
+                  for (final record in records)
+                    _ActivityRecordTile(record: record),
+                ],
+        );
+      },
     );
   }
 }
@@ -305,7 +309,7 @@ class _ActivityRecordsSection extends StatelessWidget {
 class _ActivityRecordTile extends StatelessWidget {
   const _ActivityRecordTile({required this.record});
 
-  final _ActivityRecord record;
+  final ActivityRecord record;
 
   @override
   Widget build(BuildContext context) {
@@ -328,6 +332,29 @@ class _ActivityRecordTile extends StatelessWidget {
               _StatusPill(label: record.type),
             ],
           ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                color: MyPageScreen._green,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  record.region,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: MyPageScreen._grayText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -346,10 +373,46 @@ class _ActivityRecordTile extends StatelessWidget {
               Expanded(
                 child: _InlineMetric(
                   icon: Icons.delete_outline,
-                  label: record.trashCount,
+                  label: '${record.trashCertificationCount}개',
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            record.summary,
+            style: const TextStyle(
+              color: MyPageScreen._darkText,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyActivityRecordState extends StatelessWidget {
+  const _EmptyActivityRecordState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ListSurface(
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: MyPageScreen._green, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '아직 저장된 플로깅 기록이 없어요.',
+              style: TextStyle(
+                color: MyPageScreen._grayText,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -763,22 +826,6 @@ class _QuickStat {
   final String label;
   final String value;
   final IconData icon;
-}
-
-class _ActivityRecord {
-  const _ActivityRecord(
-    this.date,
-    this.type,
-    this.distance,
-    this.duration,
-    this.trashCount,
-  );
-
-  final String date;
-  final String type;
-  final String distance;
-  final String duration;
-  final String trashCount;
 }
 
 class _GroupPlogging {

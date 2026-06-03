@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-class PloggingResultScreen extends StatelessWidget {
+import '../../activity_records/data/mock_activity_record_store.dart';
+import '../../activity_records/model/activity_record.dart';
+
+class PloggingResultScreen extends StatefulWidget {
   const PloggingResultScreen({super.key});
 
   static const _green = Color(0xFF2E7D32);
@@ -13,6 +16,14 @@ class PloggingResultScreen extends StatelessWidget {
   static const _distance = '2.4km';
   static const _trashCertifications = '3개';
   static const _region = '경기 수원시';
+  static const _trashCertificationCount = 3;
+
+  @override
+  State<PloggingResultScreen> createState() => _PloggingResultScreenState();
+}
+
+class _PloggingResultScreenState extends State<PloggingResultScreen> {
+  bool _isSaved = false;
 
   String get _activityDate {
     final now = DateTime.now();
@@ -22,6 +33,27 @@ class PloggingResultScreen extends StatelessWidget {
   String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
   void _saveActivity(BuildContext context) {
+    if (_isSaved) {
+      return;
+    }
+
+    mockActivityRecordStore.addRecord(
+      ActivityRecord(
+        id: 'personal-${DateTime.now().microsecondsSinceEpoch}',
+        type: '개인',
+        date: _activityDate,
+        region: PloggingResultScreen._region,
+        duration: PloggingResultScreen._duration,
+        distance: PloggingResultScreen._distance,
+        trashCertificationCount: PloggingResultScreen._trashCertificationCount,
+        summary: '개인 플로깅 활동 요약',
+      ),
+    );
+
+    setState(() {
+      _isSaved = true;
+    });
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('활동 기록이 저장되었습니다.')));
@@ -52,11 +84,11 @@ class PloggingResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: PloggingResultScreen._background,
       appBar: AppBar(
         title: const Text('플로깅 완료'),
-        backgroundColor: _background,
-        foregroundColor: _darkText,
+        backgroundColor: PloggingResultScreen._background,
+        foregroundColor: PloggingResultScreen._darkText,
         elevation: 0,
       ),
       body: SafeArea(
@@ -74,6 +106,7 @@ class PloggingResultScreen extends StatelessWidget {
             const _SaveStatusCard(),
             const SizedBox(height: 20),
             _ResultActions(
+              isSaved: _isSaved,
               onSavePressed: () => _saveActivity(context),
               onSharePressed: () => _shareToCommunity(context),
               onHomePressed: () => _goHome(context),
@@ -254,11 +287,13 @@ class _SaveStatusCard extends StatelessWidget {
 
 class _ResultActions extends StatelessWidget {
   const _ResultActions({
+    required this.isSaved,
     required this.onSavePressed,
     required this.onSharePressed,
     required this.onHomePressed,
   });
 
+  final bool isSaved;
   final VoidCallback onSavePressed;
   final VoidCallback onSharePressed;
   final VoidCallback onHomePressed;
@@ -271,9 +306,11 @@ class _ResultActions extends StatelessWidget {
           width: double.infinity,
           height: 54,
           child: FilledButton.icon(
-            onPressed: onSavePressed,
-            icon: const Icon(Icons.bookmark_add_outlined),
-            label: const Text('활동 기록 저장하기'),
+            onPressed: isSaved ? null : onSavePressed,
+            icon: Icon(
+              isSaved ? Icons.check_circle_outline : Icons.bookmark_add_outlined,
+            ),
+            label: Text(isSaved ? '저장 완료' : '활동 기록 저장하기'),
             style: FilledButton.styleFrom(
               backgroundColor: PloggingResultScreen._green,
               foregroundColor: Colors.white,
