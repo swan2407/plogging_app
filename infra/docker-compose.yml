@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: plogging-postgres
+    restart: unless-stopped
+    environment:
+      # These defaults make local setup work without requiring an infra/.env file.
+      POSTGRES_DB: ${POSTGRES_DB:-plogging_db}
+      POSTGRES_USER: ${POSTGRES_USER:-plogging_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plogging_password}
+    ports:
+      # Exposes PostgreSQL on the host so local tools can connect to localhost.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Named volumes preserve data after containers are stopped or recreated.
+      - postgres_data:/var/lib/postgresql/data
+      # SQL files here run once when PostgreSQL initializes an empty data volume.
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-plogging_user} -d ${POSTGRES_DB:-plogging_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: plogging-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@plogging.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      # Open http://localhost:5050 to use the pgAdmin web interface.
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  pgadmin_data:
