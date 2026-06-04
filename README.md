@@ -162,7 +162,10 @@ PostgreSQL 기본 접속 정보:
 - Database: `plogging_db`
 - User: `plogging_user`
 - Password: `plogging_password`
-- Host port: `5432`
+- Local host: `localhost`
+- Local host port: `5433`
+
+Docker PostgreSQL은 네이티브 PostgreSQL의 기본 포트 `5432`와 충돌하지 않도록 로컬 PC의 `localhost:5433`에 노출됩니다. Docker Compose 네트워크 내부에서는 PostgreSQL 서비스가 계속 `postgres:5432`를 사용합니다.
 
 ### pgAdmin 접속 및 PostgreSQL 서버 등록
 
@@ -180,7 +183,7 @@ pgAdmin에서 PostgreSQL 서버를 등록할 때 다음 정보를 사용합니�
 - Username: `plogging_user`
 - Password: `plogging_password`
 
-> Docker Compose 네트워크 내부의 pgAdmin에서는 PostgreSQL 호스트로 서비스 이름인 `postgres`를 사용해야 합니다. DBeaver, `psql` 등 로컬 PC에서 실행하는 도구에서는 호스트로 `localhost`를 사용합니다.
+> Docker Compose로 실행한 pgAdmin에서는 PostgreSQL 호스트와 포트로 `postgres:5432`를 사용해야 합니다. 로컬 PC에서 별도로 실행하는 pgAdmin, DBeaver, `psql` 등에서는 `localhost:5433`을 사용합니다.
 
 ## 9. 현재 구현 상태
 
