@@ -164,6 +164,24 @@ PostgreSQL 기본 접속 정보:
 - Password: `plogging_password`
 - Host port: `5432`
 
+### pgAdmin 접속 및 PostgreSQL 서버 등록
+
+Docker Compose 실행 후 브라우저에서 pgAdmin에 접속할 수 있습니다.
+
+- URL: [http://localhost:5050](http://localhost:5050)
+- Email: `admin@example.com`
+- Password: `admin1234`
+
+pgAdmin에서 PostgreSQL 서버를 등록할 때 다음 정보를 사용합니다.
+
+- Host: `postgres`
+- Port: `5432`
+- Database: `plogging_db`
+- Username: `plogging_user`
+- Password: `plogging_password`
+
+> Docker Compose 네트워크 내부의 pgAdmin에서는 PostgreSQL 호스트로 서비스 이름인 `postgres`를 사용해야 합니다. DBeaver, `psql` 등 로컬 PC에서 실행하는 도구에서는 호스트로 `localhost`를 사용합니다.
+
 ## 9. 현재 구현 상태
 
 | 항목 | 상태 | 비고 |
