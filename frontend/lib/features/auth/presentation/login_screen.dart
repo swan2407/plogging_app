@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
+import '../data/auth_api_service.dart';
 import 'signup_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.popAfterLogin = false});
 
   final bool popAfterLogin;
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _loginIdController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _authApiService = AuthApiService();
+  bool _isSubmitting = false;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -14,6 +25,13 @@ class LoginScreen extends StatelessWidget {
   static const _darkText = Color(0xFF1F2937);
   static const _grayText = Color(0xFF6B7280);
   static const _kakaoYellow = Color(0xFFFEE500);
+
+  @override
+  void dispose() {
+    _loginIdController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,13 +53,15 @@ class LoginScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const _AuthTextField(
+                  _AuthTextField(
+                    controller: _loginIdController,
                     label: '아이디',
                     icon: Icons.person_outline,
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
-                  const _AuthTextField(
+                  _AuthTextField(
+                    controller: _passwordController,
                     label: '비밀번호',
                     icon: Icons.lock_outline,
                     obscureText: true,
@@ -49,16 +69,14 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   _PrimaryAuthButton(
-                    label: '로그인',
+                    label: _isSubmitting ? '로그인 중...' : '로그인',
                     icon: Icons.login,
-                    onPressed: () => _login(context),
+                    onPressed: _isSubmitting ? null : _login,
                   ),
                   const SizedBox(height: 12),
                   _KakaoPlaceholderButton(
-                    onPressed: () => _showPlaceholderMessage(
-                      context,
-                      '카카오 로그인은 아직 준비 중입니다.',
-                    ),
+                    onPressed: () =>
+                        _showMessage(context, '카카오 로그인은 아직 준비 중입니다.'),
                   ),
                   const SizedBox(height: 12),
                   _SecondaryAuthButton(
@@ -83,9 +101,42 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  void _login(BuildContext context) {
-    mockAuthController.login();
-    _returnToMainNavigation(context);
+  Future<void> _login() async {
+    if (_loginIdController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      _showMessage(context, '아이디와 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final result = await _authApiService.login(
+        loginId: _loginIdController.text.trim(),
+        password: _passwordController.text,
+      );
+      mockAuthController.login(
+        accessToken: result.accessToken,
+        userId: result.userId,
+        nickname: result.nickname,
+      );
+
+      if (mounted) {
+        _returnToMainNavigation(context);
+      }
+    } on AuthApiException catch (exception) {
+      if (mounted) {
+        _showMessage(context, exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage(context, '서버에 연결할 수 없습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   void _browseAsGuest(BuildContext context) {
@@ -107,7 +158,7 @@ class LoginScreen extends StatelessWidget {
     }
   }
 
-  void _showPlaceholderMessage(BuildContext context, String message) {
+  void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
@@ -124,10 +175,10 @@ class _LoginHero extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 38,
-            backgroundColor: LoginScreen._lightGreen,
+            backgroundColor: _LoginScreenState._lightGreen,
             child: Icon(
               Icons.eco_outlined,
-              color: LoginScreen._green,
+              color: _LoginScreenState._green,
               size: 44,
             ),
           ),
@@ -135,7 +186,7 @@ class _LoginHero extends StatelessWidget {
           Text(
             'Plogging',
             style: TextStyle(
-              color: LoginScreen._green,
+              color: _LoginScreenState._green,
               fontSize: 30,
               fontWeight: FontWeight.w900,
             ),
@@ -144,7 +195,7 @@ class _LoginHero extends StatelessWidget {
           Text(
             '우리 동네를 함께 깨끗하게',
             style: TextStyle(
-              color: LoginScreen._grayText,
+              color: _LoginScreenState._grayText,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -157,12 +208,14 @@ class _LoginHero extends StatelessWidget {
 
 class _AuthTextField extends StatelessWidget {
   const _AuthTextField({
+    required this.controller,
     required this.label,
     required this.icon,
     this.obscureText = false,
     this.textInputAction,
   });
 
+  final TextEditingController controller;
   final String label;
   final IconData icon;
   final bool obscureText;
@@ -171,20 +224,24 @@ class _AuthTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       obscureText: obscureText,
       textInputAction: textInputAction,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: LoginScreen._green),
+        prefixIcon: Icon(icon, color: _LoginScreenState._green),
         filled: true,
-        fillColor: LoginScreen._background,
+        fillColor: _LoginScreenState._background,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: LoginScreen._green, width: 1.4),
+          borderSide: const BorderSide(
+            color: _LoginScreenState._green,
+            width: 1.4,
+          ),
         ),
       ),
     );
@@ -200,7 +257,7 @@ class _PrimaryAuthButton extends StatelessWidget {
 
   final String label;
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -214,10 +271,10 @@ class _PrimaryAuthButton extends StatelessWidget {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: LoginScreen._green,
+          backgroundColor: _LoginScreenState._green,
           foregroundColor: Colors.white,
           elevation: 8,
-          shadowColor: LoginScreen._green.withValues(alpha: 0.24),
+          shadowColor: _LoginScreenState._green.withValues(alpha: 0.24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -250,8 +307,8 @@ class _SecondaryAuthButton extends StatelessWidget {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: LoginScreen._green,
-          side: const BorderSide(color: LoginScreen._green),
+          foregroundColor: _LoginScreenState._green,
+          side: const BorderSide(color: _LoginScreenState._green),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -278,7 +335,7 @@ class _KakaoPlaceholderButton extends StatelessWidget {
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: LoginScreen._kakaoYellow,
+          backgroundColor: _LoginScreenState._kakaoYellow,
           foregroundColor: const Color(0xFF191919),
           elevation: 0,
           shape: RoundedRectangleBorder(

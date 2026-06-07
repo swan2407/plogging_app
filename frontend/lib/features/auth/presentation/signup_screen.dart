@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../../core/constants/korea_regions.dart';
+import '../data/auth_api_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key, this.popAfterSignup = false});
@@ -21,6 +22,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _guardianNameController = TextEditingController();
   final _guardianContactController = TextEditingController();
   final _guardianRelationController = TextEditingController();
+  final _authApiService = AuthApiService();
 
   bool? _isOver14;
   bool _termsAgreed = false;
@@ -30,6 +32,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _guardianAgreed = false;
   String? _selectedSido;
   String? _selectedSigungu;
+  bool _isSubmitting = false;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -105,6 +108,7 @@ class _SignupScreenState extends State<SignupScreen> {
     final ageRequirementsDone =
         _isOver14 == true || (_isOver14 == false && _guardianFieldsDone);
     return basicFieldsDone &&
+        !_isSubmitting &&
         _isPasswordValid &&
         _doesPasswordMatch &&
         _requiredAgreementsDone &&
@@ -279,9 +283,12 @@ class _SignupScreenState extends State<SignupScreen> {
               child: FilledButton.icon(
                 onPressed: _canSubmit ? _completeSignup : null,
                 icon: const Icon(Icons.check_circle_outline, size: 20),
-                label: const Text(
-                  '회원가입 완료',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                label: Text(
+                  _isSubmitting ? '회원가입 중...' : '회원가입 완료',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: _green,
@@ -471,19 +478,65 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    mockAuthController.login();
+    setState(() => _isSubmitting = true);
 
-    if (!mounted) {
-      return;
+    try {
+      final agreements = <Map<String, Object>>[
+        _agreement('TERMS_OF_SERVICE', _termsAgreed),
+        _agreement('PRIVACY_POLICY', _privacyAgreed),
+        _agreement('LOCATION_TERMS', _locationAgreed),
+        _agreement('PHOTO_CERTIFICATION_POLICY', _photoAgreed),
+        if (_isOver14 == false)
+          _agreement('CHILD_GUARDIAN_CONSENT', _guardianAgreed),
+      ];
+      final result = await _authApiService.signup(
+        loginId: _idController.text.trim(),
+        password: _passwordController.text,
+        nickname: _nicknameController.text.trim(),
+        regionSido: _selectedSido,
+        regionSigungu: _selectedSigungu,
+        agreements: agreements,
+      );
+      mockAuthController.login(
+        accessToken: result.accessToken,
+        userId: result.userId,
+        nickname: result.nickname,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('회원가입이 완료되었습니다.')));
+
+      if (widget.popAfterSignup && Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } on AuthApiException catch (exception) {
+      if (mounted) {
+        _showError(exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showError('서버에 연결할 수 없습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
+  }
 
+  Map<String, Object> _agreement(String termsType, bool agreed) {
+    return {'termsType': termsType, 'termsVersion': 'v1.0', 'agreed': agreed};
+  }
+
+  void _showError(String message) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('회원가입이 완료되었습니다.')));
-
-    if (widget.popAfterSignup && Navigator.of(context).canPop()) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
