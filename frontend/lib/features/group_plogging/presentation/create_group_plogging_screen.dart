@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/mock_auth_controller.dart';
 import '../../../core/constants/korea_regions.dart';
+import '../data/group_event_api_service.dart';
 import '../data/mock_group_place_data.dart';
 
 class CreateGroupPloggingScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
   final _titleController = TextEditingController();
   final _suppliesController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _apiService = GroupEventApiService();
 
   String? _selectedSido;
   String? _selectedSigungu;
@@ -24,6 +27,7 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
   DateTime? _deadline;
   int _maxParticipants = 10;
   String? _selectedPlace;
+  bool _isSubmitting = false;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -48,6 +52,19 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
       _activityDate!.day,
       _startTime!.hour,
       _startTime!.minute,
+    );
+  }
+
+  DateTime? get _endDateTime {
+    if (_activityDate == null || _endTime == null) {
+      return null;
+    }
+    return DateTime(
+      _activityDate!.year,
+      _activityDate!.month,
+      _activityDate!.day,
+      _endTime!.hour,
+      _endTime!.minute,
     );
   }
 
@@ -173,11 +190,14 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
             SizedBox(
               height: 54,
               child: FilledButton.icon(
-                onPressed: _submit,
+                onPressed: _isSubmitting ? null : _submit,
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text(
-                  '생성하기',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                label: Text(
+                  _isSubmitting ? '생성 중...' : '생성하기',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: _green,
@@ -303,8 +323,8 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
       pickedTime.minute,
     );
 
-    if (!deadline.isBefore(startDateTime)) {
-      _showSnackBar('모집 마감 시간은 시작 시간보다 빨라야 합니다.');
+    if (deadline.isAfter(startDateTime)) {
+      _showSnackBar('모집 마감 시간은 시작 시간 이후로 설정할 수 없습니다.');
       return;
     }
 
@@ -458,34 +478,79 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
     }
 
     final startDateTime = _startDateTime;
-    if (startDateTime == null ||
-        _deadline == null ||
-        !_deadline!.isBefore(startDateTime)) {
-      _showSnackBar('모집 마감 시간은 시작 시간보다 빨라야 합니다.');
+    final endDateTime = _endDateTime;
+    if (startDateTime == null || endDateTime == null) {
+      _showSnackBar('활동 날짜와 시간을 확인해 주세요.');
       return;
     }
 
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('생성 완료'),
-          content: const Text('단체 플로깅이 생성되었습니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (!mounted) {
+    if (_deadline != null && _deadline!.isAfter(startDateTime)) {
+      _showSnackBar('모집 마감 시간은 활동 시작 시간 이후로 설정할 수 없습니다.');
       return;
     }
 
-    Navigator.of(context).pop();
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null) {
+      _showSnackBar('로그인이 필요합니다.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await _apiService.createGroupEvent(
+        CreateGroupEventRequest(
+          title: _titleController.text.trim(),
+          regionSido: _selectedSido!,
+          regionSigungu: _selectedSigungu!,
+          startAt: startDateTime,
+          endAt: endDateTime,
+          recruitDeadlineAt: _deadline,
+          maxParticipants: _maxParticipants,
+          placeName: _selectedPlace!,
+          supplies: _suppliesController.text.trim().isEmpty
+              ? null
+              : _suppliesController.text.trim(),
+          description: _descriptionController.text.trim(),
+        ),
+        accessToken,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('생성 완료'),
+            content: const Text('단체 플로깅이 생성되었습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } on GroupEventApiException catch (exception) {
+      if (mounted) {
+        _showSnackBar(exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showSnackBar('서버에 연결할 수 없습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   bool _hasRequiredFields() {

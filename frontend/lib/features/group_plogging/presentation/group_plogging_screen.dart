@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../data/group_event_api_service.dart';
 import '../data/mock_group_events.dart';
 import '../model/group_event.dart';
 import 'create_group_plogging_screen.dart';
 import 'group_plogging_detail_screen.dart';
 
-class GroupPloggingScreen extends StatelessWidget {
+class GroupPloggingScreen extends StatefulWidget {
   const GroupPloggingScreen({super.key});
 
   static const green = Color(0xFF2E7D32);
@@ -17,12 +18,65 @@ class GroupPloggingScreen extends StatelessWidget {
   static const grayText = Color(0xFF6B7280);
 
   @override
+  State<GroupPloggingScreen> createState() => _GroupPloggingScreenState();
+}
+
+class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
+  final _apiService = GroupEventApiService();
+  List<GroupEvent> _events = const [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  bool _showingFallback = false;
+  int? _joiningEventId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _showingFallback = false;
+    });
+
+    try {
+      final events = await _apiService.fetchGroupEvents();
+      if (mounted) {
+        setState(() => _events = events);
+      }
+    } on GroupEventApiException catch (exception) {
+      if (mounted) {
+        setState(() {
+          _events = fallbackGroupEvents;
+          _errorMessage = exception.message;
+          _showingFallback = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _events = fallbackGroupEvents;
+          _errorMessage = '서버에서 단체 플로깅 목록을 불러오지 못했습니다.';
+          _showingFallback = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: GroupPloggingScreen.background,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _handleCreatePressed(context),
-        backgroundColor: green,
+        onPressed: _handleCreatePressed,
+        backgroundColor: GroupPloggingScreen.green,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text(
@@ -30,85 +84,190 @@ class GroupPloggingScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 104),
-          children: [
-            const _SummaryCard(),
+      body: SafeArea(child: _buildBody()),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadEvents,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 104),
+        children: [
+          const _SummaryCard(),
+          const SizedBox(height: 18),
+          const _FilterArea(),
+          if (_errorMessage != null) ...[
             const SizedBox(height: 18),
-            const _FilterArea(),
-            const SizedBox(height: 18),
-            const Text(
-              '모집 중인 단체 플로깅',
-              style: TextStyle(
-                color: darkText,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
+            _LoadErrorCard(
+              message: _errorMessage!,
+              showingFallback: _showingFallback,
+              onRetry: _loadEvents,
             ),
-            const SizedBox(height: 12),
-            for (final event in mockGroupEvents) ...[
+          ],
+          const SizedBox(height: 18),
+          const Text(
+            '모집 중인 단체 플로깅',
+            style: TextStyle(
+              color: GroupPloggingScreen.darkText,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_events.isEmpty)
+            const _EmptyEventCard()
+          else
+            for (final event in _events) ...[
               _GroupEventCard(
                 event: event,
-                onTap: () => _openDetailScreen(context, event),
-                onJoinPressed: () => _handleJoinPressed(context, event),
+                isJoining: _joiningEventId == event.id,
+                onTap: () => _openDetailScreen(event),
+                onJoinPressed: () => _handleJoinPressed(event),
               ),
               const SizedBox(height: 14),
             ],
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  static void _openDetailScreen(BuildContext context, GroupEvent event) {
-    Navigator.of(context).push(
+  Future<void> _openDetailScreen(GroupEvent event) async {
+    await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (context) => GroupPloggingDetailScreen(event: event),
       ),
     );
+    await _loadEvents();
   }
 
-  static void _handleJoinPressed(BuildContext context, GroupEvent event) {
+  Future<void> _handleJoinPressed(GroupEvent event) async {
     if (!mockAuthController.isLoggedIn) {
-      _openLoginScreen(context);
+      _openLoginScreen();
       return;
     }
 
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('참여 완료'),
-          content: Text('${event.title} 참여가 완료되었습니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null || event.id < 0) {
+      _showMessage('백엔드에 연결된 단체 플로깅에서만 참여할 수 있습니다.');
+      return;
+    }
+
+    setState(() => _joiningEventId = event.id);
+    try {
+      final updated = await _apiService.joinGroupEvent(event.id, accessToken);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _events = _events
+            .map((item) => item.id == updated.id ? updated : item)
+            .toList();
+      });
+      _showMessage('단체 플로깅 참여가 완료되었습니다.');
+    } on GroupEventApiException catch (exception) {
+      if (mounted) {
+        _showMessage(exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('서버에 연결할 수 없습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _joiningEventId = null);
+      }
+    }
+  }
+
+  Future<void> _handleCreatePressed() async {
+    if (!mockAuthController.isLoggedIn) {
+      _openLoginScreen();
+      return;
+    }
+
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => const CreateGroupPloggingScreen(),
+      ),
     );
+    if (created == true) {
+      await _loadEvents();
+    }
   }
 
-  static void _handleCreatePressed(BuildContext context) {
-    if (!mockAuthController.isLoggedIn) {
-      _openLoginScreen(context);
-      return;
-    }
-
+  void _openLoginScreen() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => const CreateGroupPloggingScreen(),
+        builder: (context) => const LoginScreen(popAfterLogin: true),
       ),
     );
   }
 
-  static void _openLoginScreen(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const LoginScreen(popAfterLogin: true),
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _LoadErrorCard extends StatelessWidget {
+  const _LoadErrorCard({
+    required this.message,
+    required this.showingFallback,
+    required this.onRetry,
+  });
+
+  final String message;
+  final bool showingFallback;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GreenCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            showingFallback ? '$message\n개발용 예시 데이터를 표시합니다.' : message,
+            style: const TextStyle(
+              color: GroupPloggingScreen.grayText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyEventCard extends StatelessWidget {
+  const _EmptyEventCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _GreenCard(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Text(
+          '등록된 단체 플로깅이 없습니다.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: GroupPloggingScreen.grayText,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }
@@ -236,11 +395,13 @@ class _FilterChip extends StatelessWidget {
 class _GroupEventCard extends StatelessWidget {
   const _GroupEventCard({
     required this.event,
+    required this.isJoining,
     required this.onTap,
     required this.onJoinPressed,
   });
 
   final GroupEvent event;
+  final bool isJoining;
   final VoidCallback onTap;
   final VoidCallback onJoinPressed;
 
@@ -271,7 +432,7 @@ class _GroupEventCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _StatusBadge(status: event.status),
+                  _StatusBadge(status: event.statusLabel),
                 ],
               ),
               const SizedBox(height: 14),
@@ -303,14 +464,14 @@ class _GroupEventCard extends StatelessWidget {
               _InfoRow(
                 icon: Icons.backpack_outlined,
                 label: '준비물',
-                value: event.supplies,
+                value: event.suppliesText,
               ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: FilledButton(
-                  onPressed: onJoinPressed,
+                  onPressed: isJoining ? null : onJoinPressed,
                   style: FilledButton.styleFrom(
                     backgroundColor: GroupPloggingScreen.green,
                     foregroundColor: Colors.white,
@@ -318,8 +479,8 @@ class _GroupEventCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    '참여하기',
+                  child: Text(
+                    isJoining ? '참여 중...' : '참여하기',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                 ),

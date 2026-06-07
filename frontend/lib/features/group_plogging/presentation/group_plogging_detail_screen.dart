@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../data/group_event_api_service.dart';
 import '../model/group_event.dart';
 
-class GroupPloggingDetailScreen extends StatelessWidget {
-  const GroupPloggingDetailScreen({super.key, required this.event});
+class GroupPloggingDetailScreen extends StatefulWidget {
+  const GroupPloggingDetailScreen({super.key, this.event, this.eventId})
+    : assert(event != null || eventId != null);
 
-  final GroupEvent event;
+  final GroupEvent? event;
+  final int? eventId;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -16,12 +19,84 @@ class GroupPloggingDetailScreen extends StatelessWidget {
   static const _grayText = Color(0xFF6B7280);
 
   @override
+  State<GroupPloggingDetailScreen> createState() =>
+      _GroupPloggingDetailScreenState();
+}
+
+class _GroupPloggingDetailScreenState extends State<GroupPloggingDetailScreen> {
+  final _apiService = GroupEventApiService();
+  GroupEvent? _event;
+  bool _isLoading = false;
+  bool _isJoining = false;
+  String? _errorMessage;
+
+  int get _eventId => widget.eventId ?? widget.event!.id;
+
+  @override
+  void initState() {
+    super.initState();
+    _event = widget.event;
+    if (_event == null) {
+      _loadDetail();
+    }
+  }
+
+  Future<void> _loadDetail() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final event = await _apiService.fetchGroupEventDetail(_eventId);
+      if (mounted) {
+        setState(() => _event = event);
+      }
+    } on GroupEventApiException catch (exception) {
+      if (mounted) {
+        setState(() => _errorMessage = exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _errorMessage = '단체 플로깅 상세 정보를 불러오지 못했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_event == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('단체 플로깅 상세')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_errorMessage ?? '단체 플로깅을 불러올 수 없습니다.'),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _loadDetail,
+                icon: const Icon(Icons.refresh),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final event = _event!;
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: GroupPloggingDetailScreen._background,
       appBar: AppBar(
-        backgroundColor: _background,
-        foregroundColor: _darkText,
+        backgroundColor: GroupPloggingDetailScreen._background,
+        foregroundColor: GroupPloggingDetailScreen._darkText,
         elevation: 0,
         title: const Text('단체 플로깅 상세'),
       ),
@@ -57,7 +132,7 @@ class GroupPloggingDetailScreen extends StatelessWidget {
                   _DetailRow(
                     icon: Icons.campaign_outlined,
                     label: '모집 상태',
-                    value: event.status,
+                    value: event.statusLabel,
                   ),
                   _DetailRow(
                     icon: Icons.people_outline,
@@ -77,7 +152,7 @@ class GroupPloggingDetailScreen extends StatelessWidget {
                   _DetailRow(
                     icon: Icons.backpack_outlined,
                     label: '준비물',
-                    value: event.supplies,
+                    value: event.suppliesText,
                     isLast: true,
                   ),
                 ],
@@ -93,7 +168,7 @@ class GroupPloggingDetailScreen extends StatelessWidget {
                   Text(
                     event.description,
                     style: const TextStyle(
-                      color: _darkText,
+                      color: GroupPloggingDetailScreen._darkText,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.5,
@@ -108,17 +183,22 @@ class GroupPloggingDetailScreen extends StatelessWidget {
             SizedBox(
               height: 54,
               child: FilledButton.icon(
-                onPressed: () => _handleJoin(context),
+                onPressed: _isJoining ? null : _handleJoin,
                 icon: const Icon(Icons.how_to_reg_outlined),
-                label: const Text(
-                  '참여하기',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                label: Text(
+                  _isJoining ? '참여 중...' : '참여하기',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: _green,
+                  backgroundColor: GroupPloggingDetailScreen._green,
                   foregroundColor: Colors.white,
                   elevation: 8,
-                  shadowColor: _green.withValues(alpha: 0.24),
+                  shadowColor: GroupPloggingDetailScreen._green.withValues(
+                    alpha: 0.24,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -131,7 +211,7 @@ class GroupPloggingDetailScreen extends StatelessWidget {
     );
   }
 
-  void _handleJoin(BuildContext context) {
+  Future<void> _handleJoin() async {
     if (!mockAuthController.isLoggedIn) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -141,21 +221,53 @@ class GroupPloggingDetailScreen extends StatelessWidget {
       return;
     }
 
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('참여 완료'),
-          content: const Text('단체 플로깅 참여가 완료되었습니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        );
-      },
-    );
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null || _eventId < 0) {
+      _showMessage('백엔드에 연결된 단체 플로깅에서만 참여할 수 있습니다.');
+      return;
+    }
+
+    setState(() => _isJoining = true);
+    try {
+      final event = await _apiService.joinGroupEvent(_eventId, accessToken);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _event = event);
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('참여 완료'),
+            content: const Text('단체 플로깅 참여가 완료되었습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+    } on GroupEventApiException catch (exception) {
+      if (mounted) {
+        _showMessage(exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('서버에 연결할 수 없습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isJoining = false);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
