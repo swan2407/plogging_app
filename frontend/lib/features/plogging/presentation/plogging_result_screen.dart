@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/mock_auth_controller.dart';
+import '../../auth/presentation/login_screen.dart';
 import '../../community/presentation/community_post_create_screen.dart';
 import '../data/mock_activity_record_store.dart';
 import '../data/mock_plogging_result_data.dart';
-import '../model/activity_record.dart';
+import '../data/plogging_api_service.dart';
 
 class PloggingResultScreen extends StatefulWidget {
   const PloggingResultScreen({super.key});
@@ -19,7 +21,9 @@ class PloggingResultScreen extends StatefulWidget {
 }
 
 class _PloggingResultScreenState extends State<PloggingResultScreen> {
+  final _ploggingApiService = PloggingApiService();
   bool _isSaved = false;
+  bool _isSaving = false;
 
   String get _activityDate {
     final now = DateTime.now();
@@ -28,32 +32,78 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
 
   String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
-  void _saveActivity(BuildContext context) {
-    if (_isSaved) {
+  Future<void> _saveActivity() async {
+    if (_isSaved || _isSaving) {
       return;
     }
 
-    mockActivityRecordStore.addRecord(
-      ActivityRecord(
-        id: 'personal-${DateTime.now().microsecondsSinceEpoch}',
-        type: '개인',
-        date: _activityDate,
-        region: mockPloggingResultSummary.region,
-        duration: mockPloggingResultSummary.duration,
-        distance: mockPloggingResultSummary.distance,
-        trashCertificationCount:
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null) {
+      _showMessage('로그인이 필요합니다.');
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => const LoginScreen(popAfterLogin: true),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final endAt = DateTime.now();
+    final startAt = endAt.subtract(const Duration(minutes: 42));
+
+    try {
+      final session = await _ploggingApiService.saveCompletedPloggingSession(
+        SaveCompletedPloggingRequest(
+          startAt: startAt,
+          endAt: endAt,
+          durationSeconds: 2520,
+          distanceMeter: 2400,
+          regionSido: '경기',
+          regionSigungu: '수원시',
+          trashCertificationCount:
+              mockPloggingResultSummary.trashCertificationCount,
+          trashRecords: List.generate(
             mockPloggingResultSummary.trashCertificationCount,
-        summary: mockPloggingResultSummary.summary,
-      ),
-    );
+            (index) => TrashRecordRequest(
+              imageUrl: 'mock://trash/photo-${index + 1}.jpg',
+              lat: 37.4200000,
+              lng: 127.1260000,
+              trashType: index == 0 ? 'PLASTIC' : null,
+              count: index == 0 ? 1 : null,
+              weightGram: index == 0 ? 120 : null,
+              memo: index == 0 ? '플라스틱 병 수거' : null,
+            ),
+          ),
+        ),
+        accessToken,
+      );
+      mockActivityRecordStore.addRecord(session.toActivityRecord());
 
-    setState(() {
-      _isSaved = true;
-    });
+      if (mounted) {
+        setState(() => _isSaved = true);
+        _showMessage('활동 기록이 저장되었습니다.');
+      }
+    } on PloggingApiException catch (exception) {
+      if (mounted) {
+        _showMessage(exception.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('활동 기록 저장에 실패했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
 
+  void _showMessage(String message) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('활동 기록이 저장되었습니다.')));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _shareToCommunity(BuildContext context) {
@@ -111,7 +161,8 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
             const SizedBox(height: 20),
             _ResultActions(
               isSaved: _isSaved,
-              onSavePressed: () => _saveActivity(context),
+              isSaving: _isSaving,
+              onSavePressed: _saveActivity,
               onSharePressed: () => _shareToCommunity(context),
               onHomePressed: () => _goHome(context),
             ),
@@ -292,12 +343,14 @@ class _SaveStatusCard extends StatelessWidget {
 class _ResultActions extends StatelessWidget {
   const _ResultActions({
     required this.isSaved,
+    required this.isSaving,
     required this.onSavePressed,
     required this.onSharePressed,
     required this.onHomePressed,
   });
 
   final bool isSaved;
+  final bool isSaving;
   final VoidCallback onSavePressed;
   final VoidCallback onSharePressed;
   final VoidCallback onHomePressed;
@@ -310,13 +363,21 @@ class _ResultActions extends StatelessWidget {
           width: double.infinity,
           height: 54,
           child: FilledButton.icon(
-            onPressed: isSaved ? null : onSavePressed,
+            onPressed: isSaved || isSaving ? null : onSavePressed,
             icon: Icon(
               isSaved
                   ? Icons.check_circle_outline
+                  : isSaving
+                  ? Icons.hourglass_top
                   : Icons.bookmark_add_outlined,
             ),
-            label: Text(isSaved ? '저장 완료' : '활동 기록 저장하기'),
+            label: Text(
+              isSaved
+                  ? '저장 완료'
+                  : isSaving
+                  ? '저장 중...'
+                  : '활동 기록 저장하기',
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: PloggingResultScreen._green,
               foregroundColor: Colors.white,

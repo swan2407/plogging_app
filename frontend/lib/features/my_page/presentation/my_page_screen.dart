@@ -4,6 +4,7 @@ import '../../../core/auth/mock_auth_controller.dart';
 import '../data/mock_my_page_data.dart';
 import '../model/my_page_models.dart';
 import '../../plogging/data/mock_activity_record_store.dart';
+import '../../plogging/data/plogging_api_service.dart';
 import '../../plogging/model/activity_record.dart';
 
 class MyPageScreen extends StatelessWidget {
@@ -280,14 +281,54 @@ class _QuickStatCard extends StatelessWidget {
   }
 }
 
-class _ActivityRecordsSection extends StatelessWidget {
+class _ActivityRecordsSection extends StatefulWidget {
   const _ActivityRecordsSection();
 
   @override
+  State<_ActivityRecordsSection> createState() =>
+      _ActivityRecordsSectionState();
+}
+
+class _ActivityRecordsSectionState extends State<_ActivityRecordsSection> {
+  final _ploggingApiService = PloggingApiService();
+  late Future<List<ActivityRecord>> _recordsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordsFuture = _fetchRecords();
+  }
+
+  Future<List<ActivityRecord>> _fetchRecords() async {
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null) {
+      return mockActivityRecordStore.records;
+    }
+
+    try {
+      final sessions = await _ploggingApiService.fetchMyPloggingSessions(
+        accessToken,
+      );
+      return sessions.map((session) => session.toActivityRecord()).toList();
+    } catch (_) {
+      return mockActivityRecordStore.records;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<ActivityRecord>>(
-      valueListenable: mockActivityRecordStore.recordsListenable,
-      builder: (context, records, child) {
+    return FutureBuilder<List<ActivityRecord>>(
+      future: _recordsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _MyPageSection(
+            title: '나의 활동 기록',
+            icon: Icons.directions_walk_outlined,
+            children: [_LoadingActivityRecordState()],
+          );
+        }
+
+        final records = snapshot.data ?? mockActivityRecordStore.records;
         return _MyPageSection(
           title: '나의 활동 기록',
           icon: Icons.directions_walk_outlined,
@@ -299,6 +340,17 @@ class _ActivityRecordsSection extends StatelessWidget {
                 ],
         );
       },
+    );
+  }
+}
+
+class _LoadingActivityRecordState extends StatelessWidget {
+  const _LoadingActivityRecordState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ListSurface(
+      child: Center(child: CircularProgressIndicator()),
     );
   }
 }
