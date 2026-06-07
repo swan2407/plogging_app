@@ -61,6 +61,7 @@ class PloggingSession {
       distance: '${(distanceMeter / 1000).toStringAsFixed(1)}km',
       trashCertificationCount: trashCertificationCount,
       summary: '개인 플로깅 활동 기록',
+      status: _statusLabel(status),
     );
   }
 
@@ -74,6 +75,16 @@ class PloggingSession {
       return remainingMinutes > 0 ? '$hours시간 $remainingMinutes분' : '$hours시간';
     }
     return '$minutes분';
+  }
+
+  String _statusLabel(String value) {
+    return switch (value) {
+      'IN_PROGRESS' => '진행 중',
+      'PAUSED' => '일시정지',
+      'COMPLETED' => '완료',
+      'CANCELED' => '취소',
+      _ => value,
+    };
   }
 }
 

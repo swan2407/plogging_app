@@ -291,7 +291,7 @@ class _ActivityRecordsSection extends StatefulWidget {
 
 class _ActivityRecordsSectionState extends State<_ActivityRecordsSection> {
   final _ploggingApiService = PloggingApiService();
-  late Future<List<ActivityRecord>> _recordsFuture;
+  late Future<_ActivityRecordsResult> _recordsFuture;
 
   @override
   void initState() {
@@ -299,25 +299,44 @@ class _ActivityRecordsSectionState extends State<_ActivityRecordsSection> {
     _recordsFuture = _fetchRecords();
   }
 
-  Future<List<ActivityRecord>> _fetchRecords() async {
+  Future<_ActivityRecordsResult> _fetchRecords() async {
     final accessToken = mockAuthController.accessToken;
     if (accessToken == null) {
-      return mockActivityRecordStore.records;
+      return _ActivityRecordsResult(
+        records: mockActivityRecordStore.records,
+        fallbackMessage: '로그인이 필요합니다.',
+      );
     }
 
     try {
       final sessions = await _ploggingApiService.fetchMyPloggingSessions(
         accessToken,
       );
-      return sessions.map((session) => session.toActivityRecord()).toList();
+      return _ActivityRecordsResult(
+        records: sessions.map((session) => session.toActivityRecord()).toList(),
+      );
+    } on PloggingApiException catch (exception) {
+      return _ActivityRecordsResult(
+        records: mockActivityRecordStore.records,
+        fallbackMessage: '${exception.message} 기존 기록을 표시합니다.',
+      );
     } catch (_) {
-      return mockActivityRecordStore.records;
+      return _ActivityRecordsResult(
+        records: mockActivityRecordStore.records,
+        fallbackMessage: '플로깅 기록을 불러오지 못했습니다. 기존 기록을 표시합니다.',
+      );
     }
+  }
+
+  void _refresh() {
+    setState(() {
+      _recordsFuture = _fetchRecords();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<ActivityRecord>>(
+    return FutureBuilder<_ActivityRecordsResult>(
       future: _recordsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -328,18 +347,66 @@ class _ActivityRecordsSectionState extends State<_ActivityRecordsSection> {
           );
         }
 
-        final records = snapshot.data ?? mockActivityRecordStore.records;
+        final result =
+            snapshot.data ??
+            _ActivityRecordsResult(
+              records: mockActivityRecordStore.records,
+              fallbackMessage: '플로깅 기록을 불러오지 못했습니다. 기존 기록을 표시합니다.',
+            );
         return _MyPageSection(
           title: '나의 활동 기록',
           icon: Icons.directions_walk_outlined,
-          children: records.isEmpty
-              ? const [_EmptyActivityRecordState()]
-              : [
-                  for (final record in records)
-                    _ActivityRecordTile(record: record),
-                ],
+          action: IconButton(
+            onPressed: _refresh,
+            tooltip: '활동 기록 새로고침',
+            icon: const Icon(Icons.refresh, color: MyPageScreen._green),
+          ),
+          children: [
+            if (result.fallbackMessage != null)
+              _ActivityRecordsFallbackState(message: result.fallbackMessage!),
+            if (result.records.isEmpty)
+              const _EmptyActivityRecordState()
+            else
+              for (final record in result.records)
+                _ActivityRecordTile(record: record),
+          ],
         );
       },
+    );
+  }
+}
+
+class _ActivityRecordsResult {
+  const _ActivityRecordsResult({required this.records, this.fallbackMessage});
+
+  final List<ActivityRecord> records;
+  final String? fallbackMessage;
+}
+
+class _ActivityRecordsFallbackState extends StatelessWidget {
+  const _ActivityRecordsFallbackState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ListSurface(
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: MyPageScreen._green, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: MyPageScreen._grayText,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -378,7 +445,14 @@ class _ActivityRecordTile extends StatelessWidget {
                   ),
                 ),
               ),
-              _StatusPill(label: record.type),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _StatusPill(label: record.type),
+                  const SizedBox(width: 6),
+                  _StatusPill(label: record.status),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -699,11 +773,13 @@ class _MyPageSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.children,
+    this.action,
   });
 
   final String title;
   final IconData icon;
   final List<Widget> children;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -711,7 +787,7 @@ class _MyPageSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(icon: icon, title: title),
+          _SectionHeader(icon: icon, title: title, action: action),
           const SizedBox(height: 14),
           for (var index = 0; index < children.length; index++) ...[
             children[index],
@@ -753,10 +829,11 @@ class _MyPageCard extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.icon, required this.title});
+  const _SectionHeader({required this.icon, required this.title, this.action});
 
   final IconData icon;
   final String title;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -782,6 +859,7 @@ class _SectionHeader extends StatelessWidget {
             ),
           ),
         ),
+        ?action,
       ],
     );
   }

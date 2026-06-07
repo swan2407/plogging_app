@@ -8,6 +8,7 @@ class ActivityRecord {
     required this.distance,
     required this.trashCertificationCount,
     required this.summary,
+    this.status = '완료',
   });
 
   final String id;
@@ -18,4 +19,5 @@ class ActivityRecord {
   final String distance;
   final int trashCertificationCount;
   final String summary;
+  final String status;
 }

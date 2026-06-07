@@ -53,7 +53,7 @@ class PloggingApiService {
       final message = decoded is Map<String, dynamic>
           ? decoded['message'] as String?
           : null;
-      throw PloggingApiException(message ?? '활동 기록 저장에 실패했습니다.');
+      throw PloggingApiException(message ?? '플로깅 기록을 불러오지 못했습니다.');
     }
     return decoded;
   }
