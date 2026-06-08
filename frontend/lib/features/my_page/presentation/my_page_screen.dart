@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../data/mock_my_page_data.dart';
+import '../data/my_page_api_service.dart';
 import '../model/my_page_models.dart';
 import '../../plogging/data/mock_activity_record_store.dart';
 import '../../plogging/data/plogging_api_service.dart';
@@ -18,6 +19,23 @@ class MyPageScreen extends StatelessWidget {
   static const _darkText = Color(0xFF1F2937);
   static const _grayText = Color(0xFF6B7280);
 
+  static String formatDistance(int meters) {
+    if (meters < 1000) {
+      return '${meters}m';
+    }
+    return '${(meters / 1000).toStringAsFixed(1)}km';
+  }
+
+  static String formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final hours = minutes ~/ 60;
+    final remainingMinutes = minutes % 60;
+    if (hours > 0) {
+      return remainingMinutes > 0 ? '$hours시간 $remainingMinutes분' : '$hours시간';
+    }
+    return '$minutes분';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,9 +46,7 @@ class MyPageScreen extends StatelessWidget {
           children: [
             const _PageHeader(),
             const SizedBox(height: 18),
-            const _ProfileSummaryCard(),
-            const SizedBox(height: 18),
-            const _QuickStatsGrid(),
+            const _ActivitySummarySection(),
             const SizedBox(height: 26),
             const _ActivityRecordsSection(),
             const SizedBox(height: 26),
@@ -52,6 +68,100 @@ class MyPageScreen extends StatelessWidget {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
+}
+
+class _ActivitySummarySection extends StatefulWidget {
+  const _ActivitySummarySection();
+
+  @override
+  State<_ActivitySummarySection> createState() =>
+      _ActivitySummarySectionState();
+}
+
+class _ActivitySummarySectionState extends State<_ActivitySummarySection> {
+  final _myPageApiService = MyPageApiService();
+  late Future<_ActivitySummaryResult> _summaryFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _summaryFuture = _fetchSummary();
+  }
+
+  Future<_ActivitySummaryResult> _fetchSummary() async {
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null) {
+      return const _ActivitySummaryResult(
+        fallbackMessage: '로그인이 필요합니다. 기존 통계를 표시합니다.',
+      );
+    }
+
+    try {
+      return _ActivitySummaryResult(
+        summary: await _myPageApiService.fetchMyActivitySummary(accessToken),
+      );
+    } on MyPageApiException catch (exception) {
+      return _ActivitySummaryResult(
+        fallbackMessage: '${exception.message} 기존 통계를 표시합니다.',
+      );
+    } catch (_) {
+      return const _ActivitySummaryResult(
+        fallbackMessage: '활동 통계를 불러오지 못했습니다. 기존 통계를 표시합니다.',
+      );
+    }
+  }
+
+  void _refresh() {
+    setState(() {
+      _summaryFuture = _fetchSummary();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_ActivitySummaryResult>(
+      future: _summaryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Column(
+            children: [
+              _ProfileSummaryCard(summary: null),
+              SizedBox(height: 18),
+              _QuickStatsGrid(summary: null),
+            ],
+          );
+        }
+
+        final result =
+            snapshot.data ??
+            const _ActivitySummaryResult(
+              fallbackMessage: '활동 통계를 불러오지 못했습니다. 기존 통계를 표시합니다.',
+            );
+
+        return Column(
+          children: [
+            _ProfileSummaryCard(summary: result.summary),
+            const SizedBox(height: 18),
+            if (result.fallbackMessage != null) ...[
+              _SummaryFallbackState(
+                message: result.fallbackMessage!,
+                onRetry: _refresh,
+              ),
+              const SizedBox(height: 18),
+            ],
+            _QuickStatsGrid(summary: result.summary),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ActivitySummaryResult {
+  const _ActivitySummaryResult({this.summary, this.fallbackMessage});
+
+  final UserActivitySummary? summary;
+  final String? fallbackMessage;
 }
 
 class _PageHeader extends StatelessWidget {
@@ -85,11 +195,25 @@ class _PageHeader extends StatelessWidget {
 }
 
 class _ProfileSummaryCard extends StatelessWidget {
-  const _ProfileSummaryCard();
+  const _ProfileSummaryCard({required this.summary});
+
+  final UserActivitySummary? summary;
 
   @override
   Widget build(BuildContext context) {
-    return const _MyPageCard(
+    final displayNickname =
+        summary?.nickname ?? mockAuthController.nickname ?? '초록걸음';
+    final totalPlogging = summary == null
+        ? '28회'
+        : '${summary!.totalPloggingCount}회';
+    final totalDistance = summary == null
+        ? '74.6km'
+        : MyPageScreen.formatDistance(summary!.totalDistanceMeter);
+    final trashCount = summary == null
+        ? '156개'
+        : '${summary!.totalTrashCertificationCount}개';
+
+    return _MyPageCard(
       child: Column(
         children: [
           Row(
@@ -109,8 +233,8 @@ class _ProfileSummaryCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '초록걸음',
-                      style: TextStyle(
+                      displayNickname,
+                      style: const TextStyle(
                         color: MyPageScreen._darkText,
                         fontSize: 19,
                         fontWeight: FontWeight.w900,
@@ -144,15 +268,15 @@ class _ProfileSummaryCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _ProfileMetric(value: '28회', label: '총 플로깅'),
+                child: _ProfileMetric(value: totalPlogging, label: '총 플로깅'),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
-                child: _ProfileMetric(value: '74.6km', label: '총 거리'),
+                child: _ProfileMetric(value: totalDistance, label: '총 거리'),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
-                child: _ProfileMetric(value: '156개', label: '쓰레기 인증'),
+                child: _ProfileMetric(value: trashCount, label: '쓰레기 인증'),
               ),
             ],
           ),
@@ -206,10 +330,37 @@ class _ProfileMetric extends StatelessWidget {
 }
 
 class _QuickStatsGrid extends StatelessWidget {
-  const _QuickStatsGrid();
+  const _QuickStatsGrid({required this.summary});
+
+  final UserActivitySummary? summary;
 
   @override
   Widget build(BuildContext context) {
+    final stats = summary == null
+        ? mockMyPageStats
+        : [
+            MyPageStat(
+              label: '총 플로깅 횟수',
+              value: '${summary!.totalPloggingCount}회',
+              icon: Icons.calendar_month_outlined,
+            ),
+            MyPageStat(
+              label: '총 이동 거리',
+              value: MyPageScreen.formatDistance(summary!.totalDistanceMeter),
+              icon: Icons.route_outlined,
+            ),
+            MyPageStat(
+              label: '총 활동 시간',
+              value: MyPageScreen.formatDuration(summary!.totalDurationSeconds),
+              icon: Icons.schedule_outlined,
+            ),
+            MyPageStat(
+              label: '쓰레기 인증 수',
+              value: '${summary!.totalTrashCertificationCount}개',
+              icon: Icons.delete_outline,
+            ),
+          ];
+
     return GridView.count(
       crossAxisCount: 2,
       mainAxisSpacing: 12,
@@ -217,9 +368,41 @@ class _QuickStatsGrid extends StatelessWidget {
       childAspectRatio: 1.62,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      children: [
-        for (final stat in mockMyPageStats) _QuickStatCard(stat: stat),
-      ],
+      children: [for (final stat in stats) _QuickStatCard(stat: stat)],
+    );
+  }
+}
+
+class _SummaryFallbackState extends StatelessWidget {
+  const _SummaryFallbackState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ListSurface(
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: MyPageScreen._green, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: MyPageScreen._grayText,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onRetry,
+            tooltip: '통계 새로고침',
+            icon: const Icon(Icons.refresh, color: MyPageScreen._green),
+          ),
+        ],
+      ),
     );
   }
 }

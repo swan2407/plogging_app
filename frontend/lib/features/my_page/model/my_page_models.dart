@@ -12,6 +12,36 @@ class MyPageStat {
   final IconData icon;
 }
 
+class UserActivitySummary {
+  const UserActivitySummary({
+    required this.userId,
+    required this.nickname,
+    required this.totalPloggingCount,
+    required this.totalDistanceMeter,
+    required this.totalDurationSeconds,
+    required this.totalTrashCertificationCount,
+  });
+
+  factory UserActivitySummary.fromJson(Map<String, dynamic> json) {
+    return UserActivitySummary(
+      userId: (json['userId'] as num).toInt(),
+      nickname: json['nickname'] as String,
+      totalPloggingCount: (json['totalPloggingCount'] as num).toInt(),
+      totalDistanceMeter: (json['totalDistanceMeter'] as num).toInt(),
+      totalDurationSeconds: (json['totalDurationSeconds'] as num).toInt(),
+      totalTrashCertificationCount:
+          (json['totalTrashCertificationCount'] as num).toInt(),
+    );
+  }
+
+  final int userId;
+  final String nickname;
+  final int totalPloggingCount;
+  final int totalDistanceMeter;
+  final int totalDurationSeconds;
+  final int totalTrashCertificationCount;
+}
+
 class JoinedGroupPlogging {
   const JoinedGroupPlogging({
     required this.title,
