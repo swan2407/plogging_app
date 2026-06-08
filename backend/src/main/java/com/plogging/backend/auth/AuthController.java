@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.plogging.backend.auth.dto.AuthResponse;
 import com.plogging.backend.auth.dto.LoginRequest;
+import com.plogging.backend.auth.dto.RefreshTokenRequest;
 import com.plogging.backend.auth.dto.SignupRequest;
+import com.plogging.backend.auth.dto.TokenRefreshResponse;
 
 import jakarta.validation.Valid;
 
@@ -32,5 +34,10 @@ public class AuthController {
 	@PostMapping("/login")
 	public AuthResponse login(@Valid @RequestBody LoginRequest request) {
 		return authService.login(request);
+	}
+
+	@PostMapping("/refresh")
+	public TokenRefreshResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+		return authService.refresh(request);
 	}
 }

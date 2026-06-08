@@ -2,13 +2,11 @@ package com.plogging.backend.group;
 
 import java.util.List;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,19 +43,17 @@ public class GroupEventController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	public GroupEventResponse create(
-		@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
 		@Valid @RequestBody CreateGroupEventRequest request
 	) {
-		User currentUser = currentUserService.requireUser(authorization);
+		User currentUser = currentUserService.requireUser();
 		return groupEventService.create(request, currentUser);
 	}
 
 	@PostMapping("/{eventId}/join")
 	public GroupEventResponse join(
-		@PathVariable Long eventId,
-		@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+		@PathVariable Long eventId
 	) {
-		User currentUser = currentUserService.requireUser(authorization);
+		User currentUser = currentUserService.requireUser();
 		return groupEventService.join(eventId, currentUser);
 	}
 }

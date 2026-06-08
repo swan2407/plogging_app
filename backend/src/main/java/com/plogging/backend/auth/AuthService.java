@@ -11,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.plogging.backend.auth.dto.AgreementRequest;
 import com.plogging.backend.auth.dto.AuthResponse;
 import com.plogging.backend.auth.dto.LoginRequest;
+import com.plogging.backend.auth.dto.RefreshTokenRequest;
 import com.plogging.backend.auth.dto.SignupRequest;
+import com.plogging.backend.auth.dto.TokenRefreshResponse;
 import com.plogging.backend.common.ApiException;
 import com.plogging.backend.terms.TermsAgreement;
 import com.plogging.backend.terms.TermsAgreementRepository;
@@ -31,15 +33,18 @@ public class AuthService {
 	private final UserRepository userRepository;
 	private final TermsAgreementRepository termsAgreementRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final JwtTokenProvider jwtTokenProvider;
 
 	public AuthService(
 		UserRepository userRepository,
 		TermsAgreementRepository termsAgreementRepository,
-		PasswordEncoder passwordEncoder
+		PasswordEncoder passwordEncoder,
+		JwtTokenProvider jwtTokenProvider
 	) {
 		this.userRepository = userRepository;
 		this.termsAgreementRepository = termsAgreementRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.jwtTokenProvider = jwtTokenProvider;
 	}
 
 	@Transactional
@@ -66,6 +71,18 @@ public class AuthService {
 		termsAgreementRepository.saveAll(agreements);
 
 		return authResponse(user);
+	}
+
+	@Transactional(readOnly = true)
+	public TokenRefreshResponse refresh(RefreshTokenRequest request) {
+		Long userId = jwtTokenProvider.validateRefreshTokenAndGetUserId(request.refreshToken());
+		User user = userRepository.findById(userId)
+			.orElseThrow(() -> ApiException.unauthorized("로그인이 필요합니다."));
+
+		return new TokenRefreshResponse(
+			jwtTokenProvider.createAccessToken(user),
+			jwtTokenProvider.createRefreshToken(user)
+		);
 	}
 
 	@Transactional(readOnly = true)
@@ -98,6 +115,11 @@ public class AuthService {
 	}
 
 	private AuthResponse authResponse(User user) {
-		return new AuthResponse("dev-token-" + user.getId(), user.getId(), user.getNickname());
+		return new AuthResponse(
+			jwtTokenProvider.createAccessToken(user),
+			jwtTokenProvider.createRefreshToken(user),
+			user.getId(),
+			user.getNickname()
+		);
 	}
 }

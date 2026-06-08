@@ -84,4 +84,8 @@ public class User {
 	public String getRegionSigungu() {
 		return regionSigungu;
 	}
+
+	public String getRole() {
+		return role;
+	}
 }

@@ -1,8 +1,6 @@
 package com.plogging.backend.user;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,8 +23,8 @@ public class UserController {
 	}
 
 	@GetMapping("/me")
-	public UserResponse me(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
-		User user = currentUserService.requireUser(authorization);
+	public UserResponse me() {
+		User user = currentUserService.requireUser();
 
 		return new UserResponse(
 			user.getId(),
@@ -38,10 +36,8 @@ public class UserController {
 	}
 
 	@GetMapping("/me/statistics")
-	public UserActivitySummaryResponse statistics(
-		@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
-	) {
-		User user = currentUserService.requireUser(authorization);
+	public UserActivitySummaryResponse statistics() {
+		User user = currentUserService.requireUser();
 		return userActivitySummaryService.findByUser(user);
 	}
 
