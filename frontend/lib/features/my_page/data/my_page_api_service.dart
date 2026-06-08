@@ -29,7 +29,11 @@ class MyPageApiService {
       final message = decoded is Map<String, dynamic>
           ? decoded['message'] as String?
           : null;
-      throw MyPageApiException(message ?? '활동 통계를 불러오지 못했습니다.');
+      throw MyPageApiException(
+        response.statusCode == 401
+            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+            : message ?? '활동 통계를 불러오지 못했습니다.',
+      );
     }
 
     return UserActivitySummary.fromJson(decoded as Map<String, dynamic>);

@@ -53,7 +53,11 @@ class PloggingApiService {
       final message = decoded is Map<String, dynamic>
           ? decoded['message'] as String?
           : null;
-      throw PloggingApiException(message ?? '플로깅 기록을 불러오지 못했습니다.');
+      throw PloggingApiException(
+        response.statusCode == 401
+            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+            : message ?? '플로깅 기록을 불러오지 못했습니다.',
+      );
     }
     return decoded;
   }

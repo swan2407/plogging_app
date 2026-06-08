@@ -4,6 +4,8 @@ class MockAuthController extends ValueNotifier<bool> {
   MockAuthController() : super(false);
 
   String? accessToken;
+  // MVP uses in-memory JWT storage. Move tokens to secure storage before production release.
+  String? refreshToken;
   int? userId;
   String? nickname;
 
@@ -11,10 +13,12 @@ class MockAuthController extends ValueNotifier<bool> {
 
   void login({
     required String accessToken,
+    required String refreshToken,
     required int userId,
     required String nickname,
   }) {
     this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
     this.userId = userId;
     this.nickname = nickname;
     value = true;
@@ -22,6 +26,7 @@ class MockAuthController extends ValueNotifier<bool> {
 
   void logout() {
     accessToken = null;
+    refreshToken = null;
     userId = null;
     nickname = null;
     value = false;

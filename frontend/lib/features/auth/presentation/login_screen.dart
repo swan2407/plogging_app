@@ -117,6 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       mockAuthController.login(
         accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
         userId: result.userId,
         nickname: result.nickname,
       );

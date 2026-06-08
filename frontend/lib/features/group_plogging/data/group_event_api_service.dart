@@ -63,7 +63,11 @@ class GroupEventApiService {
       final message = decoded is Map<String, dynamic>
           ? decoded['message'] as String?
           : null;
-      throw GroupEventApiException(message ?? '요청 처리 중 오류가 발생했습니다.');
+      throw GroupEventApiException(
+        response.statusCode == 401
+            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+            : message ?? '요청 처리 중 오류가 발생했습니다.',
+      );
     }
     return decoded;
   }
