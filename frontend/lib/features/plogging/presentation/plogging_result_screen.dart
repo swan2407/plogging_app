@@ -24,6 +24,7 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
   final _ploggingApiService = PloggingApiService();
   bool _isSaved = false;
   bool _isSaving = false;
+  int? _savedSessionId;
 
   String get _activityDate {
     final now = DateTime.now();
@@ -82,7 +83,10 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
       mockActivityRecordStore.addRecord(session.toActivityRecord());
 
       if (mounted) {
-        setState(() => _isSaved = true);
+        setState(() {
+          _isSaved = true;
+          _savedSessionId = session.id;
+        });
         _showMessage('활동 기록이 저장되었습니다.');
       }
     } on PloggingApiException catch (exception) {
@@ -125,6 +129,7 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
               '쓰레기 인증은 ${mockPloggingResultSummary.trashCertifications} 남겼습니다.',
           initialRegion: mockPloggingResultSummary.region,
           linkedActivitySummary: summary,
+          sessionId: _savedSessionId,
           returnToRootOnSubmit: true,
         ),
       ),

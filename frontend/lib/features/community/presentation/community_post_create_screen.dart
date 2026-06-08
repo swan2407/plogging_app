@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_community_post_store.dart';
+import '../../../core/auth/mock_auth_controller.dart';
+import '../data/community_api_service.dart';
 import '../model/community_post.dart';
 
 class CommunityPostCreateScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class CommunityPostCreateScreen extends StatefulWidget {
     this.initialContent = '',
     this.initialRegion = '서울 마포구',
     this.linkedActivitySummary,
+    this.sessionId,
     this.returnToRootOnSubmit = false,
   });
 
@@ -19,6 +21,7 @@ class CommunityPostCreateScreen extends StatefulWidget {
   final String initialContent;
   final String initialRegion;
   final String? linkedActivitySummary;
+  final int? sessionId;
   final bool returnToRootOnSubmit;
 
   @override
@@ -31,6 +34,8 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
   late final TextEditingController _regionController;
+  final _communityApiService = CommunityApiService();
+  bool _isSubmitting = false;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -62,6 +67,7 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     final region = _regionController.text.trim();
+    final accessToken = mockAuthController.accessToken;
 
     if (title.isEmpty || content.isEmpty) {
       ScaffoldMessenger.of(
@@ -70,23 +76,55 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
       return;
     }
 
-    mockCommunityPostStore.addPost(
-      CommunityPost(
-        id: 'community-${DateTime.now().microsecondsSinceEpoch}',
-        category: _category,
-        title: title,
-        content: content,
-        region: region.isEmpty ? '지역 미입력' : region,
-        authorNickname: '초록걸음',
-        createdDate: _formatCreatedDate(DateTime.now()),
-        likeCount: 0,
-        commentCount: 0,
-        sourceType: widget.linkedActivitySummary == null
-            ? 'community'
-            : 'plogging_result',
-        linkedActivitySummary: widget.linkedActivitySummary,
-      ),
-    );
+    if (accessToken == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
+      return;
+    }
+
+    final category = communityCategoryValue(_category);
+    if (category == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('게시글 카테고리가 필요합니다.')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final regionParts = _parseRegion(region);
+      await _communityApiService.createPost(
+        CreateCommunityPostRequest(
+          category: category,
+          title: title,
+          content: content,
+          sessionId: widget.sessionId,
+          regionSido: regionParts.$1,
+          regionSigungu: regionParts.$2,
+        ),
+        accessToken,
+      );
+    } on CommunityApiException catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(exception.message)));
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('게시글 등록에 실패했습니다.')));
+      }
+      return;
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
 
     if (!mounted) {
       return;
@@ -115,12 +153,16 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
     if (widget.returnToRootOnSubmit) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     } else {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     }
   }
 
-  String _formatCreatedDate(DateTime date) {
-    return '${date.month}월 ${date.day}일';
+  (String?, String?) _parseRegion(String region) {
+    if (region.isEmpty) {
+      return (null, null);
+    }
+    final parts = region.split(RegExp(r'\s+'));
+    return (parts.first, parts.length > 1 ? parts.sublist(1).join(' ') : null);
   }
 
   @override
@@ -203,10 +245,14 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
             SizedBox(
               height: 54,
               child: FilledButton.icon(
-                onPressed: _submit,
-                icon: const Icon(Icons.send_outlined),
-                label: const Text(
-                  '게시글 등록',
+                onPressed: _isSubmitting ? null : _submit,
+                icon: Icon(
+                  _isSubmitting
+                      ? Icons.hourglass_top_outlined
+                      : Icons.send_outlined,
+                ),
+                label: Text(
+                  _isSubmitting ? '등록 중...' : '게시글 등록',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 style: FilledButton.styleFrom(
