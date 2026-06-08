@@ -1,181 +1,188 @@
 # 플로깅 환경 활동 플랫폼
 
-> 개인·단체 플로깅 활동을 간편하게 기록하고 공유하며, 위치·인증·커뮤니티·통계 데이터를 연결하기 위한 Flutter 기반 mock MVP입니다.
+> 개인 플로깅 기록, 단체 플로깅 모집, 쓰레기 인증, 커뮤니티 공유, 마이페이지 통계를 하나의 흐름으로 연결한 Flutter + Spring Boot MVP 프로젝트입니다.
 
-현재 프로젝트는 **Flutter 사용자 흐름 검증**, **REST API 및 PostgreSQL 스키마 설계**, **Docker 기반 로컬 PostgreSQL 환경 구성**까지 완료한 상태입니다. Spring Boot 백엔드, 실제 지도, 이미지 업로드, API 연동은 향후 구현 예정입니다.
+현재 프로젝트는 **Flutter 프론트엔드 MVP**, **Spring Boot 백엔드 API**, **PostgreSQL Flyway 마이그레이션**, **Docker 기반 PostgreSQL/pgAdmin 검증 환경**까지 연결한 상태입니다. 실제 운영 서비스에 필요한 JWT, 이미지 업로드, 실시간 GPS/지도 API, 배포는 아직 구현하지 않은 MVP 범위입니다.
 
 ## 1. 프로젝트 소개
 
-플로깅 활동은 걷거나 달리면서 쓰레기를 수거하는 환경 활동입니다. 이 프로젝트는 개인 활동 기록뿐 아니라 단체 플로깅 모집, 쓰레기 사진 인증, 지역 기반 지도 정보, 커뮤니티 공유, 활동 통계까지 하나의 흐름으로 연결하는 것을 목표로 합니다.
+플로깅은 걷거나 달리면서 쓰레기를 수거하는 환경 활동입니다. 이 프로젝트는 사용자가 개인 활동을 저장하고, 단체 플로깅을 모집하거나 참여하고, 활동 결과를 커뮤니티에 공유하며, 마이페이지에서 누적 활동 통계를 확인할 수 있도록 설계했습니다.
 
-단순히 운동 결과를 저장하는 앱이 아니라, 사용자는 활동을 쉽게 기록하고 시스템은 향후 분석 가능한 구조화 데이터를 축적할 수 있도록 설계했습니다.
+단순한 화면 구현에 그치지 않고, 활동 데이터가 PostgreSQL에 저장되고 pgAdmin에서 검증 가능하도록 백엔드와 데이터베이스를 연결했습니다.
 
-## 2. 개발 배경과 문제 정의
+## 2. 문제 정의
 
-- 플로깅 활동은 이동 중에 이루어지므로 매번 상세 내용을 기록하고 인증하기가 번거롭습니다.
-- 단체 플로깅 모집 정보는 여러 채널에 흩어져 있어 참여자를 찾기 어렵고, 활동 결과를 데이터로 남기기도 어렵습니다.
-- 수거된 쓰레기 정보를 지역별로 축적하면 개인 기록을 넘어 환경 활동 통계와 지역 문제 분석으로 확장할 수 있습니다.
+- 플로깅은 이동 중에 이루어지므로 매번 상세 정보를 입력하면 사용자 부담이 커집니다.
+- 단체 플로깅 모집 정보가 흩어지면 참여자 관리와 활동 기록 축적이 어렵습니다.
+- 활동 결과가 데이터베이스에 남지 않으면 마이페이지 통계, 커뮤니티 공유, 지역별 분석으로 확장하기 어렵습니다.
 
-이 문제를 해결하기 위해 **사용자 입력 과정은 단순하게 유지하면서도, 날짜·시간·지역·인원·활동 결과는 구조화된 형태로 수집하는 서비스**를 설계했습니다.
+따라서 MVP에서는 **입력은 단순하게 유지하되, 저장되는 데이터는 구조화된 형태로 관리하는 것**을 핵심 목표로 잡았습니다.
 
-## 3. 핵심 설계 방향
+## 3. 구현 상태
 
-- 목록과 상세 조회는 비회원도 이용할 수 있도록 설계했습니다.
-- 활동 기록, 단체 참여, 게시글 작성 등 데이터 변경 기능은 로그인이 필요하도록 구분했습니다.
-- 쓰레기 등록은 사진 인증을 중심으로 하고, 종류·개수·무게는 선택 입력으로 설계했습니다.
-- 단체 플로깅 생성은 자유 입력보다 지역 선택, DatePicker, TimePicker, 인원 counter 등 구조화된 입력을 우선했습니다.
-- 지도는 단체 모임, 쓰레기 기록, 분리수거장, 공공 쓰레기통을 레이어 단위로 켜고 끌 수 있도록 설계했습니다.
-- 다른 사용자의 실시간 위치와 전체 이동 경로는 공개하지 않는 방향으로 설계했습니다.
-- 먼저 mock 데이터로 화면과 사용자 흐름을 검증한 뒤 백엔드와 실제 외부 서비스를 연결하는 **mock-first 방식**을 선택했습니다.
+### 구현 완료
 
-## 4. 주요 기능
+- Flutter 프론트엔드 MVP 화면 및 주요 사용자 흐름
+- Spring Boot 백엔드 프로젝트와 REST API 구현
+- PostgreSQL Docker Compose 환경
+- pgAdmin을 통한 DB 테이블 및 데이터 검증
+- 회원가입/로그인 API
+- BCrypt 기반 비밀번호 해시 저장
+- 필수 약관 동의 내역 저장
+- 단체 플로깅 생성, 목록, 상세, 참여 API
+- 개인 플로깅 결과 저장 API
+- 쓰레기 인증 기록 저장 API
+- mock `imageUrl` 기반 쓰레기 기록 저장
+- 마이페이지 활동 기록 백엔드 조회
+- PostgreSQL View `user_activity_summary` 기반 마이페이지 통계
+- 커뮤니티 게시글, 댓글, 좋아요 API
+- Flutter 커뮤니티 게시글 목록/상세/작성/댓글/좋아요 토글 연동
+- PostgreSQL 컨테이너 `localhost:5433` 노출
+- pgAdmin에서 `users`, `plogging_sessions`, `community_posts` 등 주요 테이블 검증 가능
 
-아래 기능은 현재 Flutter mock MVP에서 화면과 인메모리 상태 변경 흐름으로 구현되어 있습니다. 실제 서버 저장, GPS, 지도 SDK, 이미지 업로드는 아직 연결되지 않았습니다.
+### 부분 구현 / MVP
 
-### 현재 구현 완료: Flutter Mock MVP
-
-- 홈 화면과 주요 기능 진입 흐름
-- 로그인·회원가입 mock 및 로그인 필요 기능 가드
-- 비밀번호 조건 실시간 검증
-- 필수 약관 동의, 약관 문서 보기, 만 14세 미만 보호자 동의 입력
-- 시/도 및 시/군/구 기반 지역 선택
-- 개인 플로깅 시작·일시정지·재개·종료 흐름
-- 쓰레기 사진 인증 등록을 가정한 mock 입력 흐름
-- 플로깅 종료 결과 요약
-- 활동 기록 인메모리 저장 및 마이페이지 기록·통계 mock
-- 커뮤니티 글쓰기 및 활동 결과 공유 mock
-- 단체 플로깅 목록·상세·참여·생성 mock
-- 지도 레이어 토글 및 mock 마커 필터링
-
-### 설계·문서화 완료
-
-- Spring Boot 연동을 위한 REST API 계약 초안
-- PostgreSQL 테이블, 관계, 제약조건, 인덱스, View 설계
-- 개인정보처리방침, 위치기반 서비스 이용약관, 사진 인증 정책 등 법률 문서 초안
-- Docker Compose 기반 로컬 PostgreSQL 실행 환경
+- 인증은 운영 JWT가 아니라 `dev-token-{userId}` 형식의 MVP 토큰을 사용합니다.
+- Flutter 토큰 저장은 보안 저장소가 아닌 인메모리 상태입니다.
+- 커뮤니티 좋아요 여부는 백엔드 응답에 `likedByMe`가 없어 Flutter 인메모리 Set으로 MVP 처리합니다.
+- 개인 플로깅 화면은 실제 GPS 경로 추적 없이 MVP 결과 데이터를 저장합니다.
+- 쓰레기 사진 인증은 실제 업로드 없이 mock `imageUrl` 문자열을 저장합니다.
+- 지도 화면은 실제 지도 SDK가 아니라 mock 마커와 레이어 토글 중심입니다.
+- 마이페이지 통계와 활동 기록은 백엔드와 연결되어 있지만, 가입한 단체 목록과 내 게시글 일부 영역은 mock 데이터가 남아 있습니다.
 
 ### 향후 구현 예정
 
-- Spring Boot 백엔드와 JWT 인증
-- Flutter와 실제 REST API 연동
-- 실제 GPS·지도 API와 위치 기반 기능
-- 이미지 선택·업로드·저장 서버
-- PostgreSQL 애플리케이션 스키마 마이그레이션과 데이터 영속화
+- production JWT / refresh token
+- 보안 저장소 기반 토큰 저장
+- 실제 이미지 업로드 및 파일 저장 서버
+- 실제 GPS route tracking
+- 실제 map API 연동
+- 위치 기반 추천 및 지도 데이터 고도화
+- phone verification
+- Kakao login
+- 관리자 기능 및 커뮤니티 moderation
+- production deployment
+- app store release
 
-## 5. 나만의 개선점과 의사결정
+## 4. 주요 기능
 
-### A. 쓰레기 등록 UX 개선
+### 인증
 
-초기에는 쓰레기 종류와 개수를 필수 입력으로 받을 수 있었지만, 플로깅 중 사용자가 쓰레기를 수거할 때마다 상세 정보를 입력하면 활동 흐름이 자주 끊긴다고 판단했습니다.
+- 회원가입 시 아이디, 비밀번호, 닉네임, 지역, 약관 동의 정보를 입력합니다.
+- 백엔드는 비밀번호를 BCrypt로 해시한 뒤 `users.password_hash`에 저장합니다.
+- 약관 동의 내역은 `terms_agreements` 테이블에 저장됩니다.
+- 로그인 성공 시 MVP 토큰 `dev-token-{userId}`를 반환합니다.
 
-그래서 **사진 인증을 중심으로 두고 종류·개수·무게는 선택 입력**으로 변경했습니다. 사용자 부담을 줄이면서도, 향후 사진 데이터를 AI 이미지 분류와 연결해 입력을 자동화할 수 있는 구조를 고려했습니다.
+### 단체 플로깅
 
-### B. 단체 플로깅 데이터 품질 개선
+- 사용자는 단체 플로깅을 생성하고, 목록과 상세를 조회하고, 모집 중인 활동에 참여할 수 있습니다.
+- 생성 폼은 지역, 날짜, 시간, 인원, 장소, 설명을 구조화된 입력으로 받습니다.
+- 백엔드는 모집 마감 시간이 활동 시작 시간 이후가 되지 않도록 검증합니다.
+- 참여 시 중복 참여, 모집 마감, 정원 초과를 검증합니다.
 
-날짜, 시간, 인원, 지역을 모두 자유 입력으로 받으면 오타와 표현 차이 때문에 검색, 정렬, 필터링, 통계 처리가 어려워질 수 있습니다.
+### 개인 플로깅과 쓰레기 인증
 
-이를 줄이기 위해 지역은 **시/도-시/군/구 선택**, 날짜는 **DatePicker**, 시간은 **TimePicker**, 인원은 **counter 방식**으로 설계했습니다. 결과적으로 사용자 입력 편의성을 유지하면서 백엔드와 데이터베이스가 처리하기 쉬운 데이터를 만들 수 있습니다.
+- 플로깅 결과 화면에서 활동 시간, 이동 거리, 지역, 쓰레기 인증 수를 백엔드에 저장합니다.
+- 쓰레기 인증 기록은 세션과 연결되어 `trash_records`에 저장됩니다.
+- 현재 이미지는 실제 업로드가 아니라 mock `imageUrl` 문자열로 저장합니다.
 
-### C. 모집 마감 시간 자동화
+### 마이페이지
 
-모집 마감 시간을 사용자가 직접 입력하면 활동 시작 이후에도 모집이 열려 있는 비정상 데이터가 생길 수 있다고 판단했습니다.
+- 내 활동 기록은 `GET /api/plogging/sessions/me`로 백엔드에서 조회합니다.
+- 누적 통계는 PostgreSQL View `user_activity_summary`를 통해 계산합니다.
+- View는 완료된 플로깅 세션 기준으로 총 활동 횟수, 총 이동 거리, 총 활동 시간, 총 쓰레기 인증 수를 제공합니다.
 
-API·DB 설계에서는 MVP 정책으로 **모집 마감 시간을 활동 시작 시간과 동일하게 서버에서 자동 설정**하도록 정의했습니다. 이를 통해 생성 폼을 단순화하고 데이터 정합성을 높이는 방향을 선택했습니다.
+### 커뮤니티
 
-### D. 지도 레이어 토글
+- 게시글 목록, 상세, 작성, 수정, 삭제, 댓글, 좋아요 API가 구현되어 있습니다.
+- Flutter 커뮤니티 화면은 백엔드 게시글을 불러오고, 실패 시 MVP mock fallback을 표시합니다.
+- 좋아요 버튼은 `POST /likes`와 `DELETE /likes`를 사용해 토글로 동작합니다.
+- 중복 좋아요 응답은 사용자에게 그대로 노출하지 않고 취소 흐름으로 처리합니다.
 
-단체 모임, 쓰레기 기록, 분리수거장, 공공 쓰레기통을 한 지도에 동시에 표시하면 정보가 겹쳐 가독성이 낮아질 수 있습니다.
+## 5. 설계 의사결정
 
-그래서 사용자가 필요한 정보만 선택할 수 있도록 **지도 레이어 토글 방식**을 적용했습니다. 새로운 위치 데이터가 추가되어도 레이어 단위로 확장할 수 있습니다.
+### 사진 우선 쓰레기 인증
 
-### E. 개인정보·위치정보 보호
+쓰레기 종류, 개수, 무게를 모두 필수로 입력하게 하면 플로깅 중 사용자의 흐름이 자주 끊깁니다. 그래서 MVP에서는 **사진 인증을 중심에 두고 상세 정보는 선택 입력**으로 설계했습니다. 사용자의 입력 부담을 줄이면서도 향후 이미지 분류나 인증 검수 기능으로 확장할 수 있습니다.
 
-플로깅 앱은 위치와 이동 경로를 다루기 때문에 기능 설계 단계부터 공개 범위를 제한했습니다.
+### 구조화된 단체 플로깅 생성 폼
 
-다른 사용자의 실시간 위치는 공개하지 않고, 커뮤니티 공유 시에도 정확한 좌표 대신 지역 단위 정보만 사용하는 방향을 잡았습니다. 이를 통해 서비스 확장 시 발생할 수 있는 개인정보와 위치정보 노출 위험을 줄이고자 했습니다.
+단체 플로깅 생성 정보를 자유 입력에 맡기면 날짜, 지역, 인원 데이터가 불안정해져 검색과 검증이 어려워집니다. 따라서 지역 선택, 날짜/시간 입력, 인원 제한, 장소명, 설명을 구조화해 백엔드와 DB가 검증 가능한 데이터를 받도록 했습니다.
 
-### F. View 선택 이유
+### 모집 마감 검증
 
-데이터베이스 고급 기능을 보여주기 위해 Trigger나 ROLLUP을 억지로 추가하기보다, 실제 마이페이지 통계 화면에 자연스럽게 필요한 **`user_activity_summary` View**를 설계했습니다.
+모집 마감 시간이 활동 시작 이후로 설정되면 모집 상태가 비정상적으로 유지될 수 있습니다. 백엔드와 DB 제약조건에서 `recruit_deadline_at <= start_at`을 검증해 잘못된 이벤트 상태를 방지했습니다.
 
-이 View는 사용자별 총 활동 횟수, 이동 거리, 활동 시간, 쓰레기 인증 수를 조회하는 용도로 정의했습니다. 기술 요소가 실제 서비스 화면과 직접 연결되도록 설계한 선택입니다. 현재는 스키마 문서에 정의된 단계이며 실제 DB에는 아직 적용되지 않았습니다.
+### 지도 레이어 토글
 
-### G. Docker 기반 PostgreSQL 환경
+단체 플로깅, 쓰레기 기록, 분리수거장, 공공 쓰레기통을 한 화면에 모두 표시하면 시각적 복잡도가 커집니다. MVP 지도 화면은 필요한 정보만 켜고 끌 수 있는 레이어 토글 방식으로 설계했습니다.
 
-개발자마다 PostgreSQL 설치 방식과 버전이 달라지는 문제를 줄이기 위해 Docker Compose로 로컬 데이터베이스 환경을 구성했습니다.
+### PostgreSQL View 기반 통계
 
-`plogging_db`와 `plogging_user`를 사용해 PostgreSQL 컨테이너 실행과 접속을 확인했습니다. 현재 실제 애플리케이션 스키마 대신 초기 연결 확인용 `health_check` 테이블만 생성되며, 향후 Spring Boot 마이그레이션을 적용할 예정입니다.
+마이페이지 통계는 매번 애플리케이션 코드에서 복잡하게 계산하기보다 PostgreSQL View `user_activity_summary`로 분리했습니다. 실제 화면 요구사항과 직접 연결되는 DB 기능을 사용해 데이터 조회 책임을 명확히 했습니다.
+
+### Docker Compose 기반 로컬 DB
+
+개발자마다 PostgreSQL 설치 방식과 버전이 달라지는 문제를 줄이기 위해 Docker Compose로 PostgreSQL과 pgAdmin을 함께 구성했습니다. 로컬 PC에서는 `localhost:5433`, Docker 네트워크 내부에서는 `postgres:5432`로 접근합니다.
+
+### mock-first 이후 백엔드 통합
+
+초기에는 Flutter mock 화면으로 사용자 흐름을 빠르게 검증했고, 이후 Spring Boot API와 PostgreSQL 저장 흐름을 연결했습니다. 이 방식은 화면 구조를 먼저 안정화한 뒤 실제 데이터 저장과 검증을 붙이는 데 효과적이었습니다.
 
 ## 6. 기술 스택
 
-| 구분 | 기술 | 현재 적용 범위 |
+| 구분 | 기술 | 적용 범위 |
 |---|---|---|
-| Frontend | Flutter, Dart | mock MVP 구현 완료 |
-| Database | PostgreSQL 16 | Docker 로컬 실행 환경 및 스키마 설계 완료 |
-| Infrastructure | Docker Compose | PostgreSQL 로컬 환경 구성 완료 |
-| Backend | Spring Boot | 향후 구현 예정 |
-| Authentication | JWT | API 설계 완료, 구현 예정 |
-| Development | VS Code, Codex CLI | 개발 및 문서화 도구 |
+| Frontend | Flutter, Dart | 화면, 상태, API 연동 |
+| Backend | Spring Boot, Spring Data JPA, JdbcTemplate | REST API, 비즈니스 로직, View 조회 |
+| Database | PostgreSQL 16 | Flyway 마이그레이션, 테이블, View |
+| Migration | Flyway | V1~V5 DB schema 적용 |
+| Auth | BCrypt, dev-token MVP | 비밀번호 해시, MVP 인증 |
+| Infrastructure | Docker Compose | PostgreSQL, pgAdmin 로컬 실행 |
+| Verification | pgAdmin | 테이블, View, 데이터 검증 |
 
 ## 7. 프로젝트 구조
 
 ```text
 plogging/
-├── frontend/              # Flutter mock MVP
-├── backend/               # Spring Boot 백엔드 구현 예정
+├── frontend/              # Flutter 앱
+├── backend/               # Spring Boot API 서버
 ├── docs/
-│   ├── api/               # REST API 계약 초안
-│   ├── database/          # PostgreSQL 스키마 및 DDL 초안
-│   ├── legal/             # 개인정보·위치정보·사진 인증 관련 법률 문서 초안
-│   ├── design/            # 디자인 시스템 자료
-│   └── planning/          # 서비스 기획 및 설계 문서
-└── infra/                 # PostgreSQL 및 pgAdmin Docker Compose 구성 파일
+│   ├── api/               # REST API 설계 문서
+│   ├── database/          # PostgreSQL 스키마 설계 문서
+│   ├── demo/              # 발표 및 시연 시나리오
+│   ├── legal/             # 개인정보·위치정보·사진 인증 관련 문서
+│   ├── design/            # 디자인 자료
+│   └── planning/          # 서비스 기획 문서
+└── infra/                 # PostgreSQL 및 pgAdmin Docker Compose
 ```
 
 ## 8. 실행 방법
 
-### Flutter Mock MVP
-
-Flutter SDK와 Chrome 실행 환경이 필요합니다.
-
-```bash
-cd frontend
-flutter pub get
-flutter analyze
-flutter run -d chrome
-```
-
-### PostgreSQL Docker 환경
-
-Docker와 Docker Compose가 필요합니다.
+### PostgreSQL 및 pgAdmin 실행
 
 ```bash
 cd infra
 docker compose up -d
-docker ps
-docker exec -it plogging-postgres psql -U plogging_user -d plogging_db
-docker compose down
 ```
 
-PostgreSQL 기본 접속 정보:
+PostgreSQL은 로컬 PC에서 `localhost:5433`으로 접근합니다.
+
+기본 Docker Compose 접속 정보:
 
 - Database: `plogging_db`
 - User: `plogging_user`
 - Password: `plogging_password`
 - Local host: `localhost`
-- Local host port: `5433`
+- Local port: `5433`
 
-Docker PostgreSQL은 네이티브 PostgreSQL의 기본 포트 `5432`와 충돌하지 않도록 로컬 PC의 `localhost:5433`에 노출됩니다. Docker Compose 네트워크 내부에서는 PostgreSQL 서비스가 계속 `postgres:5432`를 사용합니다.
-
-### pgAdmin 접속 및 PostgreSQL 서버 등록
-
-Docker Compose 실행 후 브라우저에서 pgAdmin에 접속할 수 있습니다.
+pgAdmin 접속 정보:
 
 - URL: [http://localhost:5050](http://localhost:5050)
 - Email: `admin@example.com`
 - Password: `admin1234`
 
-pgAdmin에서 PostgreSQL 서버를 등록할 때 다음 정보를 사용합니다.
+pgAdmin 서버 등록 정보:
 
 - Host: `postgres`
 - Port: `5432`
@@ -183,42 +190,60 @@ pgAdmin에서 PostgreSQL 서버를 등록할 때 다음 정보를 사용합니�
 - Username: `plogging_user`
 - Password: `plogging_password`
 
-> Docker Compose로 실행한 pgAdmin에서는 PostgreSQL 호스트와 포트로 `postgres:5432`를 사용해야 합니다. 로컬 PC에서 별도로 실행하는 pgAdmin, DBeaver, `psql` 등에서는 `localhost:5433`을 사용합니다.
+> 주의: 현재 `backend/src/main/resources/application.yml`의 DB 비밀번호가 Docker Compose 기본값과 다를 수 있습니다. 백엔드 실행 전 Docker `.env` 또는 `application.yml`의 비밀번호를 같은 값으로 맞춰야 합니다.
 
-## 9. 현재 구현 상태
+### Spring Boot 백엔드 실행
 
-| 항목 | 상태 | 비고 |
-|---|---|---|
-| Flutter mock MVP | 완료 | 주요 사용자 흐름과 인메모리 상태 변경 구현 |
-| API 명세 | 완료 | Spring Boot 구현을 위한 REST API 계약 초안 |
-| DB schema 문서 | 완료 | 테이블, 관계, 제약조건, 인덱스, View 및 DDL 초안 |
-| PostgreSQL Docker 환경 | 완료 | 컨테이너 실행·접속 확인, `health_check` 테이블 적용 |
-| Spring Boot backend | 예정 | `backend/` 구현 전 |
-| 실제 API 연동 | 예정 | Flutter는 현재 mock 데이터 사용 |
-| 실제 지도 API 연동 | 예정 | 현재 레이어와 마커는 mock UI |
-| 이미지 업로드 서버 연동 | 예정 | 현재 실제 이미지 선택·업로드 미지원 |
+```bash
+cd backend
+./gradlew bootRun
+```
 
-## 10. 향후 개발 계획
+Windows PowerShell:
 
-1. Spring Boot 백엔드 프로젝트 생성
-2. PostgreSQL 연결 및 Flyway 또는 Liquibase 마이그레이션 구성
-3. 회원가입·로그인·JWT 인증 API 구현
-4. 개인 플로깅 세션 및 활동 기록 API 구현
-5. 쓰레기 사진 업로드 및 인증 API 구현
-6. 단체 플로깅 생성·조회·참여 API 구현
-7. 커뮤니티 게시글·댓글·좋아요 API 구현
-8. Flutter mock 데이터를 실제 API 응답으로 교체
-9. 실제 지도 API와 GPS 기능 연동
-10. 마이페이지 및 지역별 통계 화면 고도화
+```powershell
+cd backend
+.\gradlew.bat bootRun
+```
 
-## 11. 포트폴리오 관점에서 배운 점
+백엔드가 실행되면 Flyway가 `V1`부터 `V5`까지 마이그레이션을 적용합니다.
 
-이 프로젝트를 진행하면서 단순히 화면을 만드는 것보다 **어떤 데이터가 어떤 구조로 쌓여야 실제 서비스로 확장할 수 있는지**를 먼저 고민했습니다.
+### Flutter 앱 실행
 
-사용자에게 많은 정보를 요구하면 데이터 품질은 높아질 수 있지만 사용성이 낮아질 수 있습니다. 반대로 입력을 지나치게 단순화하면 검색과 통계에 활용하기 어렵습니다. 사진 중심 쓰레기 인증과 구조화된 단체 플로깅 입력을 설계하며 이 균형을 구체적으로 다뤘습니다.
+```bash
+cd frontend
+flutter pub get
+flutter run -d chrome
+```
 
-또한 위치 기반 서비스라는 특성을 고려해 개인정보와 위치정보 보호 원칙을 초기 설계부터 반영했습니다. mock-first 방식으로 핵심 사용자 흐름을 빠르게 검증하고, API·DB 계약을 별도로 문서화해 이후 백엔드 연결로 확장할 수 있는 기반을 마련했습니다.
+정적 분석:
 
----
+```bash
+cd frontend
+flutter analyze
+```
 
-이 저장소의 현재 범위는 **동작 가능한 Flutter mock MVP, 백엔드·데이터베이스 설계 문서, 로컬 PostgreSQL 실행 환경**입니다. 실제 운영 서비스 수준의 백엔드, 외부 API 연동, 보안 검증, 법률 검토는 향후 작업 범위입니다.
+## 9. pgAdmin 검증 쿼리
+
+```sql
+SELECT * FROM users ORDER BY id DESC;
+SELECT * FROM terms_agreements ORDER BY agreed_at DESC;
+SELECT * FROM group_events ORDER BY created_at DESC;
+SELECT * FROM group_participants ORDER BY joined_at DESC;
+SELECT * FROM plogging_sessions ORDER BY created_at DESC;
+SELECT * FROM trash_records ORDER BY created_at DESC;
+SELECT * FROM user_activity_summary ORDER BY user_id;
+SELECT * FROM community_posts ORDER BY created_at DESC;
+SELECT * FROM comments ORDER BY created_at DESC;
+SELECT * FROM post_likes ORDER BY created_at DESC;
+```
+
+## 10. 포트폴리오 관점에서 배운 점
+
+이 프로젝트는 화면을 먼저 만드는 데서 끝나지 않고, 사용자가 만든 데이터가 어떤 테이블에 저장되고 어떤 통계로 다시 화면에 돌아오는지까지 연결했습니다.
+
+특히 사진 우선 쓰레기 인증, 구조화된 단체 플로깅 입력, 모집 마감 검증, PostgreSQL View 기반 통계는 모두 실제 사용자 흐름에서 발생하는 문제를 줄이기 위한 선택입니다.
+
+현재 범위는 운영 서비스가 아니라 **데모 가능한 통합 MVP**입니다. 다만 Flutter, Spring Boot, PostgreSQL, Docker, pgAdmin을 연결해 회원가입부터 활동 저장, 통계, 커뮤니티 공유까지 하나의 시나리오로 검증할 수 있습니다.
+
+자세한 발표 시연 흐름은 [docs/demo/demo-scenario.md](docs/demo/demo-scenario.md)를 참고합니다.
