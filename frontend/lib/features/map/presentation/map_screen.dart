@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../data/map_api_service.dart';
 import '../data/mock_map_data.dart';
@@ -21,14 +23,50 @@ class _MapScreenState extends State<MapScreen> {
 
   final _mapApiService = MapApiService();
   final Set<MapLayer> _activeLayers = {MapLayer.groupPlogging};
-  List<MapMarker> _markers = const [];
+  List<TrashMapMarker> _trashMarkers = const [];
+  List<GroupEventMapMarker> _groupMarkers = const [];
+  GoogleMapController? _mapController;
+  LatLng _initialPosition = const LatLng(37.5665, 126.9780);
+  LatLng? _currentPosition;
   bool _isLoading = true;
   bool _hasLoadError = false;
 
   List<MapMarker> get _visibleMarkers {
-    return _markers
-        .where((marker) => _activeLayers.contains(marker.layer))
-        .toList();
+    return [
+      if (_activeLayers.contains(MapLayer.trashRecord))
+        ..._trashMarkers.map((marker) => marker.toMapMarker()),
+      if (_activeLayers.contains(MapLayer.groupPlogging))
+        ..._groupMarkers.map((marker) => marker.toMapMarker()),
+    ];
+  }
+
+  Set<Marker> get _googleMarkers {
+    return {
+      if (_activeLayers.contains(MapLayer.trashRecord))
+        for (final marker in _trashMarkers)
+          if (marker.lat != null && marker.lng != null)
+            Marker(
+              markerId: MarkerId('trash-${marker.id}'),
+              position: LatLng(marker.lat!, marker.lng!),
+              infoWindow: InfoWindow(
+                title: '쓰레기 기록',
+                snippet: marker.trashType ?? marker.memo ?? '',
+              ),
+            ),
+      if (_activeLayers.contains(MapLayer.groupPlogging))
+        for (final marker in _groupMarkers)
+          if (marker.lat != null && marker.lng != null)
+            Marker(
+              markerId: MarkerId('group-${marker.id}'),
+              position: LatLng(marker.lat!, marker.lng!),
+              infoWindow: InfoWindow(
+                title: marker.title,
+                snippet:
+                    '${marker.placeName ?? '장소 정보 없음'} '
+                    '${marker.currentParticipants}/${marker.maxParticipants}명',
+              ),
+            ),
+    };
   }
 
   @override
@@ -43,14 +81,24 @@ class _MapScreenState extends State<MapScreen> {
       _hasLoadError = false;
     });
     try {
-      final trashMarkers = await _mapApiService.fetchTrashMarkers();
-      final groupMarkers = await _mapApiService.fetchGroupEventMarkers();
+      final results = await Future.wait([
+        _mapApiService.fetchTrashMarkers(),
+        _mapApiService.fetchGroupEventMarkers(),
+        _getCurrentPosition(),
+      ]);
+      final trashMarkers = results[0] as List<TrashMapMarker>;
+      final groupMarkers = results[1] as List<GroupEventMapMarker>;
+      final currentPosition = results[2] as LatLng?;
       if (!mounted) return;
       setState(() {
-        _markers = [
-          ...trashMarkers.map((marker) => marker.toMapMarker()),
-          ...groupMarkers.map((marker) => marker.toMapMarker()),
-        ];
+        _trashMarkers = trashMarkers;
+        _groupMarkers = groupMarkers;
+        _currentPosition = currentPosition;
+        _initialPosition = _resolveInitialPosition(
+          currentPosition,
+          trashMarkers,
+          groupMarkers,
+        );
       });
     } catch (error) {
       debugPrint('Map markers load failed: $error');
@@ -60,16 +108,42 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  String get _selectedLayerSummary {
-    if (_activeLayers.isEmpty) {
-      return '표시 중: 없음';
+  Future<LatLng?> _getCurrentPosition() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition();
+      return LatLng(position.latitude, position.longitude);
+    } catch (error) {
+      debugPrint('Map current location load failed: $error');
+      return null;
     }
+  }
 
-    final selectedLabels = mapLayers
-        .where((layer) => _activeLayers.contains(layer.layer))
-        .map((layer) => layer.label)
-        .join(', ');
-    return '표시 중: $selectedLabels';
+  LatLng _resolveInitialPosition(
+    LatLng? currentPosition,
+    List<TrashMapMarker> trashMarkers,
+    List<GroupEventMapMarker> groupMarkers,
+  ) {
+    if (currentPosition != null) return currentPosition;
+    for (final marker in trashMarkers) {
+      if (marker.lat != null && marker.lng != null) {
+        return LatLng(marker.lat!, marker.lng!);
+      }
+    }
+    for (final marker in groupMarkers) {
+      if (marker.lat != null && marker.lng != null) {
+        return LatLng(marker.lat!, marker.lng!);
+      }
+    }
+    return const LatLng(37.5665, 126.9780);
   }
 
   void _toggleLayer(MapLayer layer) {
@@ -82,13 +156,17 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  void _moveToCurrentLocation() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('현재 위치로 이동했어요.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _moveToCurrentLocation() async {
+    final position = _currentPosition ?? await _getCurrentPosition();
+    if (!mounted) return;
+    if (position == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('현재 위치를 확인할 수 없습니다.')));
+      return;
+    }
+    setState(() => _currentPosition = position);
+    await _mapController?.animateCamera(CameraUpdate.newLatLng(position));
   }
 
   @override
@@ -103,7 +181,15 @@ class _MapScreenState extends State<MapScreen> {
           children: [
             const _MapHeader(),
             const SizedBox(height: 18),
-            _MapPlaceholder(summary: _selectedLayerSummary),
+            _GoogleMapCard(
+              initialPosition: _initialPosition,
+              markers: _googleMarkers,
+              currentPosition: _currentPosition,
+              isLoading: _isLoading,
+              hasLoadError: _hasLoadError,
+              onMapCreated: (controller) => _mapController = controller,
+              onRetry: _loadMarkers,
+            ),
             const SizedBox(height: 18),
             _LayerToggleCard(
               activeLayers: _activeLayers,
@@ -180,84 +266,73 @@ class _MapHeader extends StatelessWidget {
   }
 }
 
-class _MapPlaceholder extends StatelessWidget {
-  const _MapPlaceholder({required this.summary});
+class _GoogleMapCard extends StatelessWidget {
+  const _GoogleMapCard({
+    required this.initialPosition,
+    required this.markers,
+    required this.currentPosition,
+    required this.isLoading,
+    required this.hasLoadError,
+    required this.onMapCreated,
+    required this.onRetry,
+  });
 
-  final String summary;
+  final LatLng initialPosition;
+  final Set<Marker> markers;
+  final LatLng? currentPosition;
+  final bool isLoading;
+  final bool hasLoadError;
+  final ValueChanged<GoogleMapController> onMapCreated;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return _MapCard(
-      padding: const EdgeInsets.all(18),
-      child: Container(
-        height: 260,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: _MapScreenState._lightGreen,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: _MapScreenState._green.withValues(alpha: 0.18),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.map_outlined,
-                color: _MapScreenState._green,
-                size: 34,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '지도 영역',
-              style: TextStyle(
-                color: _MapScreenState._darkText,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '실제 지도 API는 이후 연결 예정',
-              style: TextStyle(
-                color: _MapScreenState._grayText,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                summary,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _MapScreenState._green,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          height: 260,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GoogleMap(
+                key: ValueKey(initialPosition),
+                initialCameraPosition: CameraPosition(
+                  target: initialPosition,
+                  zoom: 14,
                 ),
+                markers: markers,
+                myLocationEnabled: currentPosition != null,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                onMapCreated: onMapCreated,
               ),
-            ),
-          ],
+              if (isLoading)
+                const ColoredBox(
+                  color: Color(0x99FFFFFF),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              if (hasLoadError)
+                ColoredBox(
+                  color: const Color(0xCCFFFFFF),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('지도 데이터를 불러오지 못했습니다.'),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: onRetry,
+                          child: const Text('다시 시도'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
