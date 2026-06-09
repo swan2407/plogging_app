@@ -26,3 +26,8 @@ app:
   upload:
     dir: uploads
     public-url-prefix: /uploads
+
+public-data:
+  household-waste:
+    base-url: https://apis.data.go.kr/1741000/household_waste_info
+    service-key: ${PUBLIC_DATA_SERVICE_KEY:}
