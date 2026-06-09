@@ -175,7 +175,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
       }
     } on CommunityApiException catch (exception) {
       if (!wasLiked && exception.isDuplicateLike) {
-        await _forceUnlike(post, accessToken);
+        await _markAlreadyLiked(post);
       } else if (wasLiked && _isUnlikeStateConflict(exception)) {
         if (mounted) {
           communityLikedPostStore.markUnliked(post.id);
@@ -195,20 +195,17 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     }
   }
 
-  Future<void> _forceUnlike(CommunityPost post, String accessToken) async {
+  Future<void> _markAlreadyLiked(CommunityPost post) async {
     try {
-      final updated = await _communityApiService.unlikePost(
-        post.id,
-        accessToken,
-      );
+      final updated = await _communityApiService.fetchPostDetail(post.id);
       if (mounted) {
-        communityLikedPostStore.markUnliked(post.id);
+        communityLikedPostStore.markLiked(post.id);
         setState(() => _post = updated);
       }
     } catch (_) {
       if (mounted) {
-        communityLikedPostStore.markUnliked(post.id);
-        setState(() => _post = _safelyUnliked(post));
+        communityLikedPostStore.markLiked(post.id);
+        setState(() {});
       }
     }
   }
@@ -532,7 +529,7 @@ class _CommentTile extends StatelessWidget {
               ),
             ),
             Text(
-              '${comment.createdAt.month}월 ${comment.createdAt.day}일',
+              comment.createdDate,
               style: const TextStyle(
                 color: _CommunityPostDetailScreenState._grayText,
                 fontSize: 12,

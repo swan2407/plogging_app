@@ -19,19 +19,19 @@ class CommunityPost {
 
   factory CommunityPost.fromJson(Map<String, dynamic> json) {
     return CommunityPost(
-      id: (json['id'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
-      authorNickname: json['authorNickname'] as String,
-      sessionId: (json['sessionId'] as num?)?.toInt(),
-      category: json['category'] as String,
-      title: json['title'] as String,
-      content: json['content'] as String,
-      imageUrl: json['imageUrl'] as String?,
-      regionSido: json['regionSido'] as String?,
-      regionSigungu: json['regionSigungu'] as String?,
-      likeCount: (json['likeCount'] as num).toInt(),
-      commentCount: (json['commentCount'] as num).toInt(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: _parseInt(json['id']),
+      userId: _parseInt(json['userId']),
+      authorNickname: _parseOptionalString(json['authorNickname']) ?? '익명',
+      sessionId: _parseNullableInt(json['sessionId']),
+      category: _parseOptionalString(json['category']) ?? '',
+      title: _parseOptionalString(json['title']) ?? '',
+      content: _parseOptionalString(json['content']) ?? '',
+      imageUrl: _parseOptionalString(json['imageUrl']),
+      regionSido: _parseOptionalString(json['regionSido']),
+      regionSigungu: _parseOptionalString(json['regionSigungu']),
+      likeCount: _parseInt(json['likeCount']),
+      commentCount: _parseInt(json['commentCount']),
+      createdAt: _parseDateTime(json['createdAt']),
     );
   }
 
@@ -47,7 +47,7 @@ class CommunityPost {
   final String? regionSigungu;
   final int likeCount;
   final int commentCount;
-  final DateTime createdAt;
+  final DateTime? createdAt;
   final String sourceType;
   final String? linkedActivitySummary;
 
@@ -62,7 +62,7 @@ class CommunityPost {
     return values.isEmpty ? '지역 정보 없음' : values.join(' ');
   }
 
-  String get createdDate => '${createdAt.month}월 ${createdAt.day}일';
+  String get createdDate => formatCommunityDate(createdAt);
 
   CommunityPost copyWith({int? likeCount, int? commentCount}) {
     return CommunityPost(
@@ -97,12 +97,12 @@ class CommunityComment {
 
   factory CommunityComment.fromJson(Map<String, dynamic> json) {
     return CommunityComment(
-      id: (json['id'] as num).toInt(),
-      postId: (json['postId'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
-      authorNickname: json['authorNickname'] as String,
-      content: json['content'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: _parseInt(json['id']),
+      postId: _parseInt(json['postId']),
+      userId: _parseInt(json['userId']),
+      authorNickname: _parseOptionalString(json['authorNickname']) ?? '익명',
+      content: _parseOptionalString(json['content']) ?? '',
+      createdAt: _parseDateTime(json['createdAt']),
     );
   }
 
@@ -111,7 +111,9 @@ class CommunityComment {
   final int userId;
   final String authorNickname;
   final String content;
-  final DateTime createdAt;
+  final DateTime? createdAt;
+
+  String get createdDate => formatCommunityDate(createdAt);
 }
 
 const communityPostCategories = ['활동 후기', '모집 홍보', '정보 공유', '질문'];
@@ -139,5 +141,29 @@ String? communityCategoryValue(String label) {
 }
 
 String communityCategoryLabel(String value) {
-  return _categoryLabelByValue[value] ?? value;
+  return _categoryLabelByValue[value] ?? (value.isEmpty ? '기타' : value);
+}
+
+String formatCommunityDate(DateTime? dateTime) {
+  return dateTime == null ? '날짜 정보 없음' : '${dateTime.month}월 ${dateTime.day}일';
+}
+
+int _parseInt(Object? value) {
+  return _parseNullableInt(value) ?? 0;
+}
+
+int? _parseNullableInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(value?.toString() ?? '');
+}
+
+String? _parseOptionalString(Object? value) {
+  final parsed = value?.toString().trim();
+  return parsed == null || parsed.isEmpty ? null : parsed;
+}
+
+DateTime? _parseDateTime(Object? value) {
+  return DateTime.tryParse(value?.toString() ?? '');
 }

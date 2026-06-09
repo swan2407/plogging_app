@@ -18,9 +18,13 @@ class CommunityApiService {
       queryParameters: category == null ? null : {'category': category},
     );
     final response = await _client.get(uri);
-    final decoded = _decode(response) as List<dynamic>;
+    final decoded = _decode(response);
+    if (decoded is! List<dynamic>) {
+      throw const CommunityApiException('게시글 응답 형식이 올바르지 않습니다.');
+    }
     return decoded
-        .map((item) => CommunityPost.fromJson(item as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(CommunityPost.fromJson)
         .toList();
   }
 
@@ -33,12 +37,12 @@ class CommunityApiService {
       headers: _authorizedHeaders(accessToken),
       body: utf8.encode(jsonEncode(request.toJson())),
     );
-    return CommunityPost.fromJson(_decode(response) as Map<String, dynamic>);
+    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
   }
 
   Future<CommunityPost> fetchPostDetail(int postId) async {
     final response = await _client.get(Uri.parse('$baseUrl/api/posts/$postId'));
-    return CommunityPost.fromJson(_decode(response) as Map<String, dynamic>);
+    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
   }
 
   Future<CommunityPost> likePost(int postId, String accessToken) async {
@@ -46,7 +50,7 @@ class CommunityApiService {
       Uri.parse('$baseUrl/api/posts/$postId/likes'),
       headers: _authorizedHeaders(accessToken),
     );
-    return CommunityPost.fromJson(_decode(response) as Map<String, dynamic>);
+    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
   }
 
   Future<CommunityPost> unlikePost(int postId, String accessToken) async {
@@ -54,16 +58,20 @@ class CommunityApiService {
       Uri.parse('$baseUrl/api/posts/$postId/likes'),
       headers: _authorizedHeaders(accessToken),
     );
-    return CommunityPost.fromJson(_decode(response) as Map<String, dynamic>);
+    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
   }
 
   Future<List<CommunityComment>> fetchComments(int postId) async {
     final response = await _client.get(
       Uri.parse('$baseUrl/api/posts/$postId/comments'),
     );
-    final decoded = _decode(response) as List<dynamic>;
+    final decoded = _decode(response);
+    if (decoded is! List<dynamic>) {
+      throw const CommunityApiException('댓글 응답 형식이 올바르지 않습니다.');
+    }
     return decoded
-        .map((item) => CommunityComment.fromJson(item as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(CommunityComment.fromJson)
         .toList();
   }
 
@@ -77,7 +85,7 @@ class CommunityApiService {
       headers: _authorizedHeaders(accessToken),
       body: utf8.encode(jsonEncode({'content': content})),
     );
-    return CommunityComment.fromJson(_decode(response) as Map<String, dynamic>);
+    return CommunityComment.fromJson(_decodeMap(response, '댓글'));
   }
 
   Map<String, String> _authorizedHeaders(String accessToken) {
@@ -101,6 +109,14 @@ class CommunityApiService {
             : message ?? '게시글을 불러오지 못했습니다.',
         statusCode: response.statusCode,
       );
+    }
+    return decoded;
+  }
+
+  Map<String, dynamic> _decodeMap(http.Response response, String resource) {
+    final decoded = _decode(response);
+    if (decoded is! Map<String, dynamic>) {
+      throw CommunityApiException('$resource 응답 형식이 올바르지 않습니다.');
     }
     return decoded;
   }
@@ -145,7 +161,7 @@ class CommunityApiException implements Exception {
   final int? statusCode;
 
   bool get isDuplicateLike {
-    return statusCode == 409 || message == '이미 좋아요를 누른 게시글입니다.';
+    return statusCode == 409;
   }
 
   @override

@@ -4,7 +4,6 @@ import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../data/community_api_service.dart';
 import '../data/community_liked_post_store.dart';
-import '../data/mock_community_post_store.dart';
 import '../model/community_post.dart';
 import 'community_post_create_screen.dart';
 import 'community_post_detail_screen.dart';
@@ -28,7 +27,6 @@ class _MessageScreenState extends State<MessageScreen> {
   String _selectedCategory = '전체';
   List<CommunityPost> _posts = const [];
   bool _isLoading = true;
-  bool _usingMockFallback = false;
   String? _errorMessage;
   final Set<int> _likingPostIds = {};
 
@@ -53,12 +51,13 @@ class _MessageScreenState extends State<MessageScreen> {
       }
       setState(() {
         _posts = posts;
-        _usingMockFallback = false;
       });
     } on CommunityApiException catch (exception) {
-      _useMockFallback(exception.message);
-    } catch (_) {
-      _useMockFallback('게시글을 불러오지 못했습니다.');
+      debugPrint('Community posts load failed: $exception');
+      _showLoadError(exception.message);
+    } catch (error) {
+      debugPrint('Community posts load failed: $error');
+      _showLoadError('게시글을 불러오지 못했습니다.');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -66,17 +65,13 @@ class _MessageScreenState extends State<MessageScreen> {
     }
   }
 
-  void _useMockFallback(String message) {
+  void _showLoadError(String message) {
     if (!mounted) {
       return;
     }
-    final category = communityCategoryValue(_selectedCategory);
     setState(() {
       _errorMessage = message;
-      _usingMockFallback = true;
-      _posts = mockCommunityPostStore.posts
-          .where((post) => category == null || post.category == category)
-          .toList();
+      _posts = const [];
     });
   }
 
@@ -109,11 +104,6 @@ class _MessageScreenState extends State<MessageScreen> {
   }
 
   Future<void> _likePost(CommunityPost post) async {
-    if (post.sourceType == 'mock') {
-      _showMessage('백엔드 연결 후 좋아요를 사용할 수 있습니다.');
-      return;
-    }
-
     final accessToken = mockAuthController.accessToken;
     if (accessToken == null) {
       _showMessage('로그인이 필요합니다.');
@@ -145,7 +135,7 @@ class _MessageScreenState extends State<MessageScreen> {
       }
     } on CommunityApiException catch (exception) {
       if (!wasLiked && exception.isDuplicateLike) {
-        await _forceUnlike(post, accessToken);
+        await _markAlreadyLiked(post);
       } else if (wasLiked && _isUnlikeStateConflict(exception)) {
         if (mounted) {
           communityLikedPostStore.markUnliked(post.id);
@@ -169,14 +159,11 @@ class _MessageScreenState extends State<MessageScreen> {
     }
   }
 
-  Future<void> _forceUnlike(CommunityPost post, String accessToken) async {
+  Future<void> _markAlreadyLiked(CommunityPost post) async {
     try {
-      final updated = await _communityApiService.unlikePost(
-        post.id,
-        accessToken,
-      );
+      final updated = await _communityApiService.fetchPostDetail(post.id);
       if (mounted) {
-        communityLikedPostStore.markUnliked(post.id);
+        communityLikedPostStore.markLiked(post.id);
         setState(() {
           _posts = _posts
               .map((item) => item.id == updated.id ? updated : item)
@@ -185,12 +172,8 @@ class _MessageScreenState extends State<MessageScreen> {
       }
     } catch (_) {
       if (mounted) {
-        communityLikedPostStore.markUnliked(post.id);
-        setState(() {
-          _posts = _posts
-              .map((item) => item.id == post.id ? _safelyUnliked(item) : item)
-              .toList();
-        });
+        communityLikedPostStore.markLiked(post.id);
+        setState(() {});
       }
     }
   }
@@ -206,11 +189,6 @@ class _MessageScreenState extends State<MessageScreen> {
   }
 
   Future<void> _openPostDetail(CommunityPost post) async {
-    if (post.sourceType == 'mock') {
-      _showMessage('백엔드 연결 후 상세 화면을 사용할 수 있습니다.');
-      return;
-    }
-
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => CommunityPostDetailScreen(postId: post.id),
@@ -265,9 +243,7 @@ class _MessageScreenState extends State<MessageScreen> {
               const SizedBox(height: 18),
               if (_errorMessage != null)
                 _CommunityLoadError(
-                  message: _usingMockFallback
-                      ? '$_errorMessage\n임시 게시글을 표시합니다.'
-                      : _errorMessage!,
+                  message: _errorMessage!,
                   onRetry: _loadPosts,
                 ),
               if (_errorMessage != null) const SizedBox(height: 18),
