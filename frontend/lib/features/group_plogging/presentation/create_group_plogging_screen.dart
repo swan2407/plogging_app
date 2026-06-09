@@ -539,10 +539,12 @@ class _CreateGroupPloggingScreenState extends State<CreateGroupPloggingScreen> {
         Navigator.of(context).pop(true);
       }
     } on GroupEventApiException catch (exception) {
+      debugPrint('Group event create failed: $exception');
       if (mounted) {
         _showSnackBar(exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Group event create failed: $error');
       if (mounted) {
         _showSnackBar('서버에 연결할 수 없습니다.');
       }

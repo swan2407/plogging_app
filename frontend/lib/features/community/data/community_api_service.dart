@@ -1,78 +1,90 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../../../core/network/api_client.dart';
 import '../model/community_post.dart';
 
 class CommunityApiService {
-  CommunityApiService({
-    http.Client? client,
-    this.baseUrl = 'http://localhost:8080',
-  }) : _client = client ?? http.Client();
+  CommunityApiService({http.Client? client, String baseUrl = apiBaseUrl})
+    : _apiClient = ApiClient(client: client, baseUrl: baseUrl);
 
-  final http.Client _client;
-  final String baseUrl;
+  final ApiClient _apiClient;
 
   Future<List<CommunityPost>> fetchPosts({String? category}) async {
-    final uri = Uri.parse('$baseUrl/api/posts').replace(
-      queryParameters: category == null ? null : {'category': category},
-    );
-    final response = await _client.get(uri);
-    final decoded = _decode(response);
-    if (decoded is! List<dynamic>) {
-      throw const CommunityApiException('게시글 응답 형식이 올바르지 않습니다.');
+    try {
+      final decoded = await _apiClient.getWithQuery(
+        '/api/posts',
+        queryParameters: category == null ? null : {'category': category},
+      );
+      if (decoded is! List<dynamic>) {
+        throw const CommunityApiException('게시글 응답 형식이 올바르지 않습니다.');
+      }
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(CommunityPost.fromJson)
+          .toList();
+    } on ApiException catch (exception) {
+      throw CommunityApiException(
+        exception.message,
+        statusCode: exception.statusCode,
+      );
     }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(CommunityPost.fromJson)
-        .toList();
   }
 
   Future<CommunityPost> createPost(
     CreateCommunityPostRequest request,
     String accessToken,
   ) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/posts'),
-      headers: _authorizedHeaders(accessToken),
-      body: utf8.encode(jsonEncode(request.toJson())),
+    return _requestPost(
+      '/api/posts',
+      usePost: true,
+      body: request.toJson(),
+      accessToken: accessToken,
     );
-    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
   }
 
   Future<CommunityPost> fetchPostDetail(int postId) async {
-    final response = await _client.get(Uri.parse('$baseUrl/api/posts/$postId'));
-    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
+    return _requestPost('/api/posts/$postId');
   }
 
   Future<CommunityPost> likePost(int postId, String accessToken) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/posts/$postId/likes'),
-      headers: _authorizedHeaders(accessToken),
+    return _requestPost(
+      '/api/posts/$postId/likes',
+      usePost: true,
+      accessToken: accessToken,
     );
-    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
   }
 
   Future<CommunityPost> unlikePost(int postId, String accessToken) async {
-    final response = await _client.delete(
-      Uri.parse('$baseUrl/api/posts/$postId/likes'),
-      headers: _authorizedHeaders(accessToken),
-    );
-    return CommunityPost.fromJson(_decodeMap(response, '게시글'));
+    try {
+      final decoded = await _apiClient.delete(
+        '/api/posts/$postId/likes',
+        accessToken: accessToken,
+      );
+      return CommunityPost.fromJson(_requireMap(decoded, '게시글'));
+    } on ApiException catch (exception) {
+      throw CommunityApiException(
+        exception.message,
+        statusCode: exception.statusCode,
+      );
+    }
   }
 
   Future<List<CommunityComment>> fetchComments(int postId) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/posts/$postId/comments'),
-    );
-    final decoded = _decode(response);
-    if (decoded is! List<dynamic>) {
-      throw const CommunityApiException('댓글 응답 형식이 올바르지 않습니다.');
+    try {
+      final decoded = await _apiClient.get('/api/posts/$postId/comments');
+      if (decoded is! List<dynamic>) {
+        throw const CommunityApiException('댓글 응답 형식이 올바르지 않습니다.');
+      }
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(CommunityComment.fromJson)
+          .toList();
+    } on ApiException catch (exception) {
+      throw CommunityApiException(
+        exception.message,
+        statusCode: exception.statusCode,
+      );
     }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(CommunityComment.fromJson)
-        .toList();
   }
 
   Future<CommunityComment> createComment(
@@ -80,41 +92,41 @@ class CommunityApiService {
     String content,
     String accessToken,
   ) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/posts/$postId/comments'),
-      headers: _authorizedHeaders(accessToken),
-      body: utf8.encode(jsonEncode({'content': content})),
-    );
-    return CommunityComment.fromJson(_decodeMap(response, '댓글'));
-  }
-
-  Map<String, String> _authorizedHeaders(String accessToken) {
-    return {
-      'Authorization': 'Bearer $accessToken',
-      'Content-Type': 'application/json; charset=UTF-8',
-    };
-  }
-
-  dynamic _decode(http.Response response) {
-    final decoded = response.bodyBytes.isEmpty
-        ? null
-        : jsonDecode(utf8.decode(response.bodyBytes));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = decoded is Map<String, dynamic>
-          ? decoded['message'] as String?
-          : null;
+    try {
+      final decoded = await _apiClient.post(
+        '/api/posts/$postId/comments',
+        body: {'content': content},
+        accessToken: accessToken,
+      );
+      return CommunityComment.fromJson(_requireMap(decoded, '댓글'));
+    } on ApiException catch (exception) {
       throw CommunityApiException(
-        response.statusCode == 401
-            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
-            : message ?? '게시글을 불러오지 못했습니다.',
-        statusCode: response.statusCode,
+        exception.message,
+        statusCode: exception.statusCode,
       );
     }
-    return decoded;
   }
 
-  Map<String, dynamic> _decodeMap(http.Response response, String resource) {
-    final decoded = _decode(response);
+  Future<CommunityPost> _requestPost(
+    String path, {
+    bool usePost = false,
+    Object? body,
+    String? accessToken,
+  }) async {
+    try {
+      final decoded = usePost
+          ? await _apiClient.post(path, body: body, accessToken: accessToken)
+          : await _apiClient.get(path, accessToken: accessToken);
+      return CommunityPost.fromJson(_requireMap(decoded, '게시글'));
+    } on ApiException catch (exception) {
+      throw CommunityApiException(
+        exception.message,
+        statusCode: exception.statusCode,
+      );
+    }
+  }
+
+  Map<String, dynamic> _requireMap(dynamic decoded, String resource) {
     if (decoded is! Map<String, dynamic>) {
       throw CommunityApiException('$resource 응답 형식이 올바르지 않습니다.');
     }

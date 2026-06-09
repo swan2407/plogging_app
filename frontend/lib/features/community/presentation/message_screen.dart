@@ -134,6 +134,7 @@ class _MessageScreenState extends State<MessageScreen> {
         });
       }
     } on CommunityApiException catch (exception) {
+      debugPrint('Community like toggle failed: $exception');
       if (!wasLiked && exception.isDuplicateLike) {
         await _markAlreadyLiked(post);
       } else if (wasLiked && _isUnlikeStateConflict(exception)) {
@@ -148,7 +149,8 @@ class _MessageScreenState extends State<MessageScreen> {
       } else if (mounted) {
         _showMessage('좋아요 처리에 실패했습니다.');
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community like toggle failed: $error');
       if (mounted) {
         _showMessage('좋아요 처리에 실패했습니다.');
       }
@@ -170,7 +172,8 @@ class _MessageScreenState extends State<MessageScreen> {
               .toList();
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community liked-state refresh failed: $error');
       if (mounted) {
         communityLikedPostStore.markLiked(post.id);
         setState(() {});

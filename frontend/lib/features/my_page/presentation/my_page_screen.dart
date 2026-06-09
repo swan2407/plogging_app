@@ -61,10 +61,10 @@ class MyPageScreen extends StatelessWidget {
     );
   }
 
-  void _logout(BuildContext context) {
-    mockAuthController.logout();
+  Future<void> _logout(BuildContext context) async {
+    await mockAuthController.logout();
 
-    if (popAfterLogout && Navigator.of(context).canPop()) {
+    if (context.mounted && popAfterLogout && Navigator.of(context).canPop()) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
@@ -101,10 +101,12 @@ class _ActivitySummarySectionState extends State<_ActivitySummarySection> {
         summary: await _myPageApiService.fetchMyActivitySummary(accessToken),
       );
     } on MyPageApiException catch (exception) {
+      debugPrint('My page summary load failed: $exception');
       return _ActivitySummaryResult(
         fallbackMessage: '${exception.message} 기존 통계를 표시합니다.',
       );
-    } catch (_) {
+    } catch (error) {
+      debugPrint('My page summary load failed: $error');
       return const _ActivitySummaryResult(
         fallbackMessage: '활동 통계를 불러오지 못했습니다. 기존 통계를 표시합니다.',
       );
@@ -499,11 +501,13 @@ class _ActivityRecordsSectionState extends State<_ActivityRecordsSection> {
         records: sessions.map((session) => session.toActivityRecord()).toList(),
       );
     } on PloggingApiException catch (exception) {
+      debugPrint('My plogging sessions load failed: $exception');
       return _ActivityRecordsResult(
         records: mockActivityRecordStore.records,
         fallbackMessage: '${exception.message} 기존 기록을 표시합니다.',
       );
-    } catch (_) {
+    } catch (error) {
+      debugPrint('My plogging sessions load failed: $error');
       return _ActivityRecordsResult(
         records: mockActivityRecordStore.records,
         fallbackMessage: '플로깅 기록을 불러오지 못했습니다. 기존 기록을 표시합니다.',

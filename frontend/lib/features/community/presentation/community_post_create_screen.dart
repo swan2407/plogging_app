@@ -107,13 +107,15 @@ class _CommunityPostCreateScreenState extends State<CommunityPostCreateScreen> {
         accessToken,
       );
     } on CommunityApiException catch (exception) {
+      debugPrint('Community post create failed: $exception');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(exception.message)));
       }
       return;
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community post create failed: $error');
       if (mounted) {
         ScaffoldMessenger.of(
           context,

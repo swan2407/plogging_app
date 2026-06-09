@@ -24,13 +24,14 @@ class UserActivitySummary {
 
   factory UserActivitySummary.fromJson(Map<String, dynamic> json) {
     return UserActivitySummary(
-      userId: (json['userId'] as num).toInt(),
-      nickname: json['nickname'] as String,
-      totalPloggingCount: (json['totalPloggingCount'] as num).toInt(),
-      totalDistanceMeter: (json['totalDistanceMeter'] as num).toInt(),
-      totalDurationSeconds: (json['totalDurationSeconds'] as num).toInt(),
-      totalTrashCertificationCount:
-          (json['totalTrashCertificationCount'] as num).toInt(),
+      userId: _parseInt(json['userId']),
+      nickname: _parseString(json['nickname'], fallback: '익명'),
+      totalPloggingCount: _parseInt(json['totalPloggingCount']),
+      totalDistanceMeter: _parseInt(json['totalDistanceMeter']),
+      totalDurationSeconds: _parseInt(json['totalDurationSeconds']),
+      totalTrashCertificationCount: _parseInt(
+        json['totalTrashCertificationCount'],
+      ),
     );
   }
 
@@ -40,6 +41,18 @@ class UserActivitySummary {
   final int totalDistanceMeter;
   final int totalDurationSeconds;
   final int totalTrashCertificationCount;
+}
+
+int _parseInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+String _parseString(Object? value, {required String fallback}) {
+  final parsed = value?.toString().trim();
+  return parsed == null || parsed.isEmpty ? fallback : parsed;
 }
 
 class JoinedGroupPlogging {

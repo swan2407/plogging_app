@@ -52,10 +52,12 @@ class _GroupPloggingDetailScreenState extends State<GroupPloggingDetailScreen> {
         setState(() => _event = event);
       }
     } on GroupEventApiException catch (exception) {
+      debugPrint('Group event detail load failed: $exception');
       if (mounted) {
         setState(() => _errorMessage = exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Group event detail load failed: $error');
       if (mounted) {
         setState(() => _errorMessage = '단체 플로깅 상세 정보를 불러오지 못했습니다.');
       }
@@ -222,8 +224,8 @@ class _GroupPloggingDetailScreenState extends State<GroupPloggingDetailScreen> {
     }
 
     final accessToken = mockAuthController.accessToken;
-    if (accessToken == null || _eventId < 0) {
-      _showMessage('백엔드에 연결된 단체 플로깅에서만 참여할 수 있습니다.');
+    if (accessToken == null) {
+      _showMessage('로그인이 필요합니다.');
       return;
     }
 
@@ -250,10 +252,12 @@ class _GroupPloggingDetailScreenState extends State<GroupPloggingDetailScreen> {
         },
       );
     } on GroupEventApiException catch (exception) {
+      debugPrint('Group event join failed: $exception');
       if (mounted) {
         _showMessage(exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Group event join failed: $error');
       if (mounted) {
         _showMessage('서버에 연결할 수 없습니다.');
       }

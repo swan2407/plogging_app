@@ -1,13 +1,12 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
-class AuthApiService {
-  AuthApiService({http.Client? client, this.baseUrl = 'http://localhost:8080'})
-    : _client = client ?? http.Client();
+import '../../../core/network/api_client.dart';
 
-  final http.Client _client;
-  final String baseUrl;
+class AuthApiService {
+  AuthApiService({http.Client? client, String baseUrl = apiBaseUrl})
+    : _apiClient = ApiClient(client: client, baseUrl: baseUrl);
+
+  final ApiClient _apiClient;
 
   Future<AuthResult> login({
     required String loginId,
@@ -41,52 +40,34 @@ class AuthApiService {
   }
 
   Future<TokenRefreshResult> refresh(String refreshToken) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/auth/refresh'),
-      headers: const {'Content-Type': 'application/json; charset=UTF-8'},
-      body: utf8.encode(jsonEncode({'refreshToken': refreshToken})),
-    );
-
-    final decoded = _decodeResponse(response.bodyBytes);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw AuthApiException(
-        response.statusCode == 401
-            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
-            : decoded['message'] as String? ?? '요청 처리 중 오류가 발생했습니다.',
+    try {
+      final decoded = await _apiClient.post(
+        '/api/auth/refresh',
+        body: {'refreshToken': refreshToken},
       );
+      return TokenRefreshResult.fromJson(_requireMap(decoded));
+    } on ApiException catch (exception) {
+      throw AuthApiException(exception.message);
     }
-
-    return TokenRefreshResult.fromJson(decoded);
   }
 
   Future<AuthResult> _post(
     String path, {
     required Map<String, Object?> body,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl$path'),
-      headers: const {'Content-Type': 'application/json; charset=UTF-8'},
-      body: utf8.encode(jsonEncode(body)),
-    );
-
-    final decoded = _decodeResponse(response.bodyBytes);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw AuthApiException(
-        response.statusCode == 401
-            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
-            : decoded['message'] as String? ?? '요청 처리 중 오류가 발생했습니다.',
-      );
+    try {
+      final decoded = await _apiClient.post(path, body: body);
+      return AuthResult.fromJson(_requireMap(decoded));
+    } on ApiException catch (exception) {
+      throw AuthApiException(exception.message);
     }
-
-    return AuthResult.fromJson(decoded);
   }
 
-  Map<String, dynamic> _decodeResponse(List<int> bodyBytes) {
-    try {
-      return jsonDecode(utf8.decode(bodyBytes)) as Map<String, dynamic>;
-    } on FormatException {
+  Map<String, dynamic> _requireMap(dynamic decoded) {
+    if (decoded is! Map<String, dynamic>) {
       throw const AuthApiException('서버 응답을 확인할 수 없습니다.');
     }
+    return decoded;
   }
 }
 

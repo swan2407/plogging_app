@@ -436,7 +436,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
     try {
       content = await rootBundle.loadString(path);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Legal document load failed: $error');
       content = '약관 내용을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
     }
 
@@ -497,7 +498,7 @@ class _SignupScreenState extends State<SignupScreen> {
         regionSigungu: _selectedSigungu,
         agreements: agreements,
       );
-      mockAuthController.login(
+      await mockAuthController.login(
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         userId: result.userId,
@@ -516,10 +517,12 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on AuthApiException catch (exception) {
+      debugPrint('Signup failed: $exception');
       if (mounted) {
         _showError(exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Signup response handling failed: $error');
       if (mounted) {
         _showError('서버에 연결할 수 없습니다.');
       }

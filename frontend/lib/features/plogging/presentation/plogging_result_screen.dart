@@ -90,10 +90,12 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
         _showMessage('활동 기록이 저장되었습니다.');
       }
     } on PloggingApiException catch (exception) {
+      debugPrint('Plogging session save failed: $exception');
       if (mounted) {
         _showMessage(exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Plogging session save failed: $error');
       if (mounted) {
         _showMessage('활동 기록 저장에 실패했습니다.');
       }

@@ -67,8 +67,11 @@ class AppDrawer extends StatelessWidget {
             _DrawerItem(
               icon: Icons.logout,
               title: '로그아웃',
-              onTap: () {
-                mockAuthController.logout();
+              onTap: () async {
+                await mockAuthController.logout();
+                if (!context.mounted) {
+                  return;
+                }
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(
                   context,

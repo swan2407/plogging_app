@@ -1,42 +1,27 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../../../core/network/api_client.dart';
 import '../model/my_page_models.dart';
 
 class MyPageApiService {
-  MyPageApiService({
-    http.Client? client,
-    this.baseUrl = 'http://localhost:8080',
-  }) : _client = client ?? http.Client();
+  MyPageApiService({http.Client? client, String baseUrl = apiBaseUrl})
+    : _apiClient = ApiClient(client: client, baseUrl: baseUrl);
 
-  final http.Client _client;
-  final String baseUrl;
+  final ApiClient _apiClient;
 
   Future<UserActivitySummary> fetchMyActivitySummary(String accessToken) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/users/me/statistics'),
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-    );
-
-    final decoded = response.bodyBytes.isEmpty
-        ? null
-        : jsonDecode(utf8.decode(response.bodyBytes));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = decoded is Map<String, dynamic>
-          ? decoded['message'] as String?
-          : null;
-      throw MyPageApiException(
-        response.statusCode == 401
-            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
-            : message ?? '활동 통계를 불러오지 못했습니다.',
+    try {
+      final decoded = await _apiClient.get(
+        '/api/users/me/statistics',
+        accessToken: accessToken,
       );
+      if (decoded is! Map<String, dynamic>) {
+        throw const MyPageApiException('활동 통계 응답 형식이 올바르지 않습니다.');
+      }
+      return UserActivitySummary.fromJson(decoded);
+    } on ApiException catch (exception) {
+      throw MyPageApiException(exception.message);
     }
-
-    return UserActivitySummary.fromJson(decoded as Map<String, dynamic>);
   }
 }
 

@@ -1,63 +1,53 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+import '../../../core/network/api_client.dart';
 import '../model/plogging_session.dart';
 
 class PloggingApiService {
-  PloggingApiService({
-    http.Client? client,
-    this.baseUrl = 'http://localhost:8080',
-  }) : _client = client ?? http.Client();
+  PloggingApiService({http.Client? client, String baseUrl = apiBaseUrl})
+    : _apiClient = ApiClient(client: client, baseUrl: baseUrl);
 
-  final http.Client _client;
-  final String baseUrl;
+  final ApiClient _apiClient;
 
   Future<PloggingSession> saveCompletedPloggingSession(
     SaveCompletedPloggingRequest request,
     String accessToken,
   ) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/plogging/sessions/completed'),
-      headers: _authorizedHeaders(accessToken),
-      body: utf8.encode(jsonEncode(request.toJson())),
-    );
-    return PloggingSession.fromJson(_decode(response) as Map<String, dynamic>);
+    try {
+      final decoded = await _apiClient.post(
+        '/api/plogging/sessions/completed',
+        body: request.toJson(),
+        accessToken: accessToken,
+      );
+      return PloggingSession.fromJson(_requireMap(decoded));
+    } on ApiException catch (exception) {
+      throw PloggingApiException(exception.message);
+    }
   }
 
   Future<List<PloggingSession>> fetchMyPloggingSessions(
     String accessToken,
   ) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/plogging/sessions/me'),
-      headers: _authorizedHeaders(accessToken),
-    );
-    final decoded = _decode(response) as List<dynamic>;
-    return decoded
-        .map((item) => PloggingSession.fromJson(item as Map<String, dynamic>))
-        .toList();
-  }
-
-  Map<String, String> _authorizedHeaders(String accessToken) {
-    return {
-      'Authorization': 'Bearer $accessToken',
-      'Content-Type': 'application/json; charset=UTF-8',
-    };
-  }
-
-  dynamic _decode(http.Response response) {
-    final decoded = response.bodyBytes.isEmpty
-        ? null
-        : jsonDecode(utf8.decode(response.bodyBytes));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = decoded is Map<String, dynamic>
-          ? decoded['message'] as String?
-          : null;
-      throw PloggingApiException(
-        response.statusCode == 401
-            ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
-            : message ?? '플로깅 기록을 불러오지 못했습니다.',
+    try {
+      final decoded = await _apiClient.get(
+        '/api/plogging/sessions/me',
+        accessToken: accessToken,
       );
+      if (decoded is! List<dynamic>) {
+        throw const PloggingApiException('플로깅 기록 응답 형식이 올바르지 않습니다.');
+      }
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(PloggingSession.fromJson)
+          .toList();
+    } on ApiException catch (exception) {
+      throw PloggingApiException(exception.message);
+    }
+  }
+
+  Map<String, dynamic> _requireMap(dynamic decoded) {
+    if (decoded is! Map<String, dynamic>) {
+      throw const PloggingApiException('플로깅 기록 응답 형식이 올바르지 않습니다.');
     }
     return decoded;
   }

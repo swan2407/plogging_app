@@ -60,10 +60,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         setState(() => _post = post);
       }
     } on CommunityApiException catch (exception) {
+      debugPrint('Community post detail load failed: $exception');
       if (mounted) {
         setState(() => _postErrorMessage = exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community post detail load failed: $error');
       if (mounted) {
         setState(() => _postErrorMessage = '게시글을 불러오지 못했습니다.');
       }
@@ -86,10 +88,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         setState(() => _comments = comments);
       }
     } on CommunityApiException catch (exception) {
+      debugPrint('Community comments load failed: $exception');
       if (mounted) {
         setState(() => _commentsErrorMessage = exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community comments load failed: $error');
       if (mounted) {
         setState(() => _commentsErrorMessage = '댓글을 불러오지 못했습니다.');
       }
@@ -128,10 +132,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
       await _loadComments();
       await _loadPost();
     } on CommunityApiException catch (exception) {
+      debugPrint('Community comment create failed: $exception');
       if (mounted) {
         _showMessage(exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community comment create failed: $error');
       if (mounted) {
         _showMessage('댓글 등록에 실패했습니다.');
       }
@@ -174,6 +180,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         setState(() => _post = updated);
       }
     } on CommunityApiException catch (exception) {
+      debugPrint('Community like toggle failed: $exception');
       if (!wasLiked && exception.isDuplicateLike) {
         await _markAlreadyLiked(post);
       } else if (wasLiked && _isUnlikeStateConflict(exception)) {
@@ -184,7 +191,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
       } else if (mounted) {
         _showMessage('좋아요 처리에 실패했습니다.');
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community like toggle failed: $error');
       if (mounted) {
         _showMessage('좋아요 처리에 실패했습니다.');
       }
@@ -202,7 +210,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         communityLikedPostStore.markLiked(post.id);
         setState(() => _post = updated);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Community liked-state refresh failed: $error');
       if (mounted) {
         communityLikedPostStore.markLiked(post.id);
         setState(() {});

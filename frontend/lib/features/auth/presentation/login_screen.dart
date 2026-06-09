@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
         loginId: _loginIdController.text.trim(),
         password: _passwordController.text,
       );
-      mockAuthController.login(
+      await mockAuthController.login(
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         userId: result.userId,
@@ -126,10 +126,12 @@ class _LoginScreenState extends State<LoginScreen> {
         _returnToMainNavigation(context);
       }
     } on AuthApiException catch (exception) {
+      debugPrint('Login failed: $exception');
       if (mounted) {
         _showMessage(context, exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Login response handling failed: $error');
       if (mounted) {
         _showMessage(context, '서버에 연결할 수 없습니다.');
       }
@@ -140,8 +142,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _browseAsGuest(BuildContext context) {
-    mockAuthController.logout();
+  Future<void> _browseAsGuest(BuildContext context) async {
+    await mockAuthController.logout();
+    if (!context.mounted) {
+      return;
+    }
     _returnToMainNavigation(context);
   }
 

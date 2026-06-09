@@ -18,18 +18,18 @@ class PloggingSession {
 
   factory PloggingSession.fromJson(Map<String, dynamic> json) {
     return PloggingSession(
-      id: (json['id'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
-      type: json['type'] as String,
-      status: json['status'] as String,
-      startAt: DateTime.parse(json['startAt'] as String),
-      endAt: DateTime.parse(json['endAt'] as String),
-      durationSeconds: (json['durationSeconds'] as num).toInt(),
-      distanceMeter: (json['distanceMeter'] as num).toInt(),
-      regionSido: json['regionSido'] as String?,
-      regionSigungu: json['regionSigungu'] as String?,
-      trashCertificationCount: (json['trashCertificationCount'] as num).toInt(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: _parseInt(json['id']),
+      userId: _parseInt(json['userId']),
+      type: _parseString(json['type']),
+      status: _parseString(json['status']),
+      startAt: _parseDateTime(json['startAt']),
+      endAt: _parseDateTime(json['endAt']),
+      durationSeconds: _parseInt(json['durationSeconds']),
+      distanceMeter: _parseInt(json['distanceMeter']),
+      regionSido: _parseNullableString(json['regionSido']),
+      regionSigungu: _parseNullableString(json['regionSigungu']),
+      trashCertificationCount: _parseInt(json['trashCertificationCount']),
+      createdAt: _parseDateTime(json['createdAt']),
     );
   }
 
@@ -37,21 +37,22 @@ class PloggingSession {
   final int userId;
   final String type;
   final String status;
-  final DateTime startAt;
-  final DateTime endAt;
+  final DateTime? startAt;
+  final DateTime? endAt;
   final int durationSeconds;
   final int distanceMeter;
   final String? regionSido;
   final String? regionSigungu;
   final int trashCertificationCount;
-  final DateTime createdAt;
+  final DateTime? createdAt;
 
   ActivityRecord toActivityRecord() {
     return ActivityRecord(
       id: 'backend-$id',
       type: type == 'PERSONAL' ? '개인' : '단체',
-      date:
-          '${startAt.year}.${_twoDigits(startAt.month)}.${_twoDigits(startAt.day)}',
+      date: startAt == null
+          ? '날짜 정보 없음'
+          : '${startAt!.year}.${_twoDigits(startAt!.month)}.${_twoDigits(startAt!.day)}',
       region: [regionSido, regionSigungu]
           .whereType<String>()
           .where((value) => value.trim().isNotEmpty)
@@ -83,9 +84,29 @@ class PloggingSession {
       'PAUSED' => '일시정지',
       'COMPLETED' => '완료',
       'CANCELED' => '취소',
-      _ => value,
+      _ => value.isEmpty ? '상태 정보 없음' : value,
     };
   }
+}
+
+int _parseInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+String _parseString(Object? value) {
+  return _parseNullableString(value) ?? '';
+}
+
+String? _parseNullableString(Object? value) {
+  final parsed = value?.toString().trim();
+  return parsed == null || parsed.isEmpty ? null : parsed;
+}
+
+DateTime? _parseDateTime(Object? value) {
+  return DateTime.tryParse(value?.toString() ?? '');
 }
 
 extension on String {

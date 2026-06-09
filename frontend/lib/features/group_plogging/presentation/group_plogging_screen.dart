@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../data/group_event_api_service.dart';
-import '../data/mock_group_events.dart';
 import '../model/group_event.dart';
 import 'create_group_plogging_screen.dart';
 import 'group_plogging_detail_screen.dart';
@@ -26,7 +25,6 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
   List<GroupEvent> _events = const [];
   bool _isLoading = true;
   String? _errorMessage;
-  bool _showingFallback = false;
   int? _joiningEventId;
 
   @override
@@ -39,7 +37,6 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _showingFallback = false;
     });
 
     try {
@@ -48,19 +45,19 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
         setState(() => _events = events);
       }
     } on GroupEventApiException catch (exception) {
+      debugPrint('Group events load failed: $exception');
       if (mounted) {
         setState(() {
-          _events = fallbackGroupEvents;
+          _events = const [];
           _errorMessage = exception.message;
-          _showingFallback = true;
         });
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Group events load failed: $error');
       if (mounted) {
         setState(() {
-          _events = fallbackGroupEvents;
+          _events = const [];
           _errorMessage = '서버에서 단체 플로깅 목록을 불러오지 못했습니다.';
-          _showingFallback = true;
         });
       }
     } finally {
@@ -104,11 +101,7 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
           const _FilterArea(),
           if (_errorMessage != null) ...[
             const SizedBox(height: 18),
-            _LoadErrorCard(
-              message: _errorMessage!,
-              showingFallback: _showingFallback,
-              onRetry: _loadEvents,
-            ),
+            _LoadErrorCard(message: _errorMessage!, onRetry: _loadEvents),
           ],
           const SizedBox(height: 18),
           const Text(
@@ -153,8 +146,8 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
     }
 
     final accessToken = mockAuthController.accessToken;
-    if (accessToken == null || event.id < 0) {
-      _showMessage('백엔드에 연결된 단체 플로깅에서만 참여할 수 있습니다.');
+    if (accessToken == null) {
+      _showMessage('로그인이 필요합니다.');
       return;
     }
 
@@ -171,10 +164,12 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
       });
       _showMessage('단체 플로깅 참여가 완료되었습니다.');
     } on GroupEventApiException catch (exception) {
+      debugPrint('Group event join failed: $exception');
       if (mounted) {
         _showMessage(exception.message);
       }
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Group event join failed: $error');
       if (mounted) {
         _showMessage('서버에 연결할 수 없습니다.');
       }
@@ -217,14 +212,9 @@ class _GroupPloggingScreenState extends State<GroupPloggingScreen> {
 }
 
 class _LoadErrorCard extends StatelessWidget {
-  const _LoadErrorCard({
-    required this.message,
-    required this.showingFallback,
-    required this.onRetry,
-  });
+  const _LoadErrorCard({required this.message, required this.onRetry});
 
   final String message;
-  final bool showingFallback;
   final VoidCallback onRetry;
 
   @override
@@ -234,7 +224,7 @@ class _LoadErrorCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            showingFallback ? '$message\n개발용 예시 데이터를 표시합니다.' : message,
+            message,
             style: const TextStyle(
               color: GroupPloggingScreen.grayText,
               fontWeight: FontWeight.w700,
