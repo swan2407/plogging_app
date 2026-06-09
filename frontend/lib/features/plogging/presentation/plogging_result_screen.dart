@@ -6,14 +6,12 @@ import '../../community/presentation/community_post_create_screen.dart';
 import '../data/mock_activity_record_store.dart';
 import '../data/mock_plogging_result_data.dart';
 import '../data/plogging_api_service.dart';
+import '../model/trash_certification_draft.dart';
 
 class PloggingResultScreen extends StatefulWidget {
-  const PloggingResultScreen({
-    super.key,
-    this.uploadedTrashImageUrls = const [],
-  });
+  const PloggingResultScreen({super.key, this.trashCertifications = const []});
 
-  final List<String> uploadedTrashImageUrls;
+  final List<TrashCertificationDraft> trashCertifications;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -53,12 +51,11 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
       );
       return;
     }
-    final uploadedTrashImageUrls = widget.uploadedTrashImageUrls
-        .map((imageUrl) => imageUrl.trim())
-        .where((imageUrl) => imageUrl.isNotEmpty)
+    final trashCertifications = widget.trashCertifications
+        .where((certification) => certification.imageUrl.trim().isNotEmpty)
         .toList();
-    if (uploadedTrashImageUrls.length != widget.uploadedTrashImageUrls.length ||
-        uploadedTrashImageUrls.isEmpty) {
+    if (trashCertifications.length != widget.trashCertifications.length ||
+        trashCertifications.isEmpty) {
       _showMessage('쓰레기 인증 사진 업로드가 필요합니다.');
       return;
     }
@@ -77,13 +74,13 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
           distanceMeter: 2400,
           regionSido: '경기',
           regionSigungu: '수원시',
-          trashCertificationCount: uploadedTrashImageUrls.length,
+          trashCertificationCount: trashCertifications.length,
           trashRecords: List.generate(
-            uploadedTrashImageUrls.length,
+            trashCertifications.length,
             (index) => TrashRecordRequest(
-              imageUrl: uploadedTrashImageUrls[index],
-              lat: 37.4200000,
-              lng: 127.1260000,
+              imageUrl: trashCertifications[index].imageUrl,
+              lat: trashCertifications[index].latitude,
+              lng: trashCertifications[index].longitude,
               trashType: index == 0 ? 'PLASTIC' : null,
               count: index == 0 ? 1 : null,
               weightGram: index == 0 ? 120 : null,

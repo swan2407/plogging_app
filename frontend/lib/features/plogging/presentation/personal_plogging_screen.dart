@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../data/image_upload_service.dart';
+import '../data/location_capture_service.dart';
+import '../model/trash_certification_draft.dart';
 import 'plogging_result_screen.dart';
 
 class PersonalPloggingScreen extends StatefulWidget {
@@ -19,7 +21,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
   bool _isStarted = false;
   bool _isPaused = false;
   int _trashCertificationCount = 0;
-  final List<String> _uploadedTrashImageUrls = [];
+  final List<TrashCertificationDraft> _trashCertifications = [];
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -32,7 +34,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
       _isStarted = true;
       _isPaused = false;
       _trashCertificationCount = 0;
-      _uploadedTrashImageUrls.clear();
+      _trashCertifications.clear();
     });
   }
 
@@ -83,7 +85,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => PloggingResultScreen(
-          uploadedTrashImageUrls: List.unmodifiable(_uploadedTrashImageUrls),
+          trashCertifications: List.unmodifiable(_trashCertifications),
         ),
       ),
     );
@@ -99,9 +101,9 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
       ),
       builder: (context) {
         return _TrashRegistrationSheet(
-          onRegister: (imageUrl) {
+          onRegister: (certification) {
             setState(() {
-              _uploadedTrashImageUrls.add(imageUrl);
+              _trashCertifications.add(certification);
               _trashCertificationCount++;
             });
           },
@@ -561,7 +563,7 @@ class _ActionButtons extends StatelessWidget {
 class _TrashRegistrationSheet extends StatefulWidget {
   const _TrashRegistrationSheet({required this.onRegister});
 
-  final ValueChanged<String> onRegister;
+  final ValueChanged<TrashCertificationDraft> onRegister;
 
   @override
   State<_TrashRegistrationSheet> createState() =>
@@ -571,15 +573,20 @@ class _TrashRegistrationSheet extends StatefulWidget {
 class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
   final _imagePicker = ImagePicker();
   final _imageUploadService = ImageUploadService();
+  final _locationCaptureService = LocationCaptureService();
   String? _trashType;
   XFile? _selectedTrashImageFile;
   Uint8List? _selectedTrashImageBytes;
   String? _uploadedTrashImageUrl;
   String? _uploadErrorMessage;
+  double? _trashLatitude;
+  double? _trashLongitude;
+  String? _locationErrorMessage;
   int _selectedImageVersion = 0;
   bool _isChoosingImageSource = false;
   bool _isPickingImage = false;
   bool _isUploadingImage = false;
+  bool _isCapturingLocation = false;
 
   Future<void> _showImageSourceSheet() async {
     if (_isChoosingImageSource || _isPickingImage || _isUploadingImage) {
@@ -666,6 +673,9 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
         _selectedTrashImageBytes = imageBytes;
         _uploadedTrashImageUrl = null;
         _uploadErrorMessage = null;
+        _trashLatitude = null;
+        _trashLongitude = null;
+        _locationErrorMessage = null;
         _selectedImageVersion++;
       });
       await _uploadSelectedImage();
@@ -695,8 +705,24 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
       _showMessage('쓰레기 인증 사진 업로드가 필요합니다.');
       return;
     }
+    if (_isCapturingLocation) {
+      _showMessage('현재 위치를 확인하는 중입니다.');
+      return;
+    }
+    final latitude = _trashLatitude;
+    final longitude = _trashLongitude;
+    if (latitude == null || longitude == null) {
+      _captureCurrentLocation(_selectedImageVersion);
+      return;
+    }
 
-    widget.onRegister(imageUrl);
+    widget.onRegister(
+      TrashCertificationDraft(
+        imageUrl: imageUrl,
+        latitude: latitude,
+        longitude: longitude,
+      ),
+    );
     final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
     messenger.showSnackBar(const SnackBar(content: Text('사진 인증이 등록되었습니다.')));
@@ -738,6 +764,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
       setState(() => _uploadedTrashImageUrl = imageUrl);
       debugPrint('Trash certification image uploaded: $imageUrl');
       _showMessage('사진 업로드가 완료되었습니다.');
+      await _captureCurrentLocation(uploadImageVersion);
     } on ImageUploadException catch (exception) {
       debugPrint('Trash certification image upload failed: $exception');
       if (mounted) {
@@ -763,6 +790,39 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
     } finally {
       if (mounted) {
         setState(() => _isUploadingImage = false);
+      }
+    }
+  }
+
+  Future<void> _captureCurrentLocation(int imageVersion) async {
+    if (_isCapturingLocation || imageVersion != _selectedImageVersion) {
+      return;
+    }
+
+    setState(() {
+      _isCapturingLocation = true;
+      _trashLatitude = null;
+      _trashLongitude = null;
+      _locationErrorMessage = null;
+    });
+    try {
+      final position = await _locationCaptureService.getCurrentPosition();
+      if (!mounted || imageVersion != _selectedImageVersion) {
+        return;
+      }
+      setState(() {
+        _trashLatitude = position.latitude;
+        _trashLongitude = position.longitude;
+      });
+    } on LocationCaptureException catch (exception) {
+      debugPrint('Trash certification location capture failed: $exception');
+      if (mounted && imageVersion == _selectedImageVersion) {
+        setState(() => _locationErrorMessage = exception.message);
+        _showMessage(exception.message);
+      }
+    } finally {
+      if (mounted && imageVersion == _selectedImageVersion) {
+        setState(() => _isCapturingLocation = false);
       }
     }
   }
@@ -814,8 +874,13 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
               isUploadingImage: _isUploadingImage,
               uploadedImageUrl: _uploadedTrashImageUrl,
               uploadErrorMessage: _uploadErrorMessage,
+              isCapturingLocation: _isCapturingLocation,
+              hasLocation: _trashLatitude != null && _trashLongitude != null,
+              locationErrorMessage: _locationErrorMessage,
               onPressed: _showImageSourceSheet,
               onRetryPressed: _uploadSelectedImage,
+              onRetryLocationPressed: () =>
+                  _captureCurrentLocation(_selectedImageVersion),
             ),
             const SizedBox(height: 22),
             const _OptionalSectionTitle(),
@@ -896,8 +961,12 @@ class _PhotoCertificationCard extends StatelessWidget {
     required this.isUploadingImage,
     required this.uploadedImageUrl,
     required this.uploadErrorMessage,
+    required this.isCapturingLocation,
+    required this.hasLocation,
+    required this.locationErrorMessage,
     required this.onPressed,
     required this.onRetryPressed,
+    required this.onRetryLocationPressed,
   });
 
   final Uint8List? selectedImageBytes;
@@ -907,8 +976,12 @@ class _PhotoCertificationCard extends StatelessWidget {
   final bool isUploadingImage;
   final String? uploadedImageUrl;
   final String? uploadErrorMessage;
+  final bool isCapturingLocation;
+  final bool hasLocation;
+  final String? locationErrorMessage;
   final VoidCallback onPressed;
   final VoidCallback onRetryPressed;
+  final VoidCallback onRetryLocationPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -1020,6 +1093,43 @@ class _PhotoCertificationCard extends StatelessWidget {
                     onPressed: onRetryPressed,
                     icon: const Icon(Icons.refresh_outlined),
                     label: const Text('다시 업로드'),
+                  ),
+                ],
+              ),
+            ),
+          if (uploadedImageUrl != null && isCapturingLocation)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text('현재 위치를 확인하는 중입니다.'),
+            )
+          else if (uploadedImageUrl != null && hasLocation)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                '현재 위치가 확인되었습니다.',
+                style: TextStyle(
+                  color: _PersonalPloggingScreenState._green,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            )
+          else if (uploadedImageUrl != null && locationErrorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                children: [
+                  Text(
+                    locationErrorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFB91C1C),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onRetryLocationPressed,
+                    icon: const Icon(Icons.my_location_outlined),
+                    label: const Text('위치 다시 확인'),
                   ),
                 ],
               ),
