@@ -79,4 +79,32 @@ public class TrashRecord {
 		this.memo = memo;
 		this.createdAt = LocalDateTime.now();
 	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public String getImageUrl() {
+		return imageUrl;
+	}
+
+	public BigDecimal getLat() {
+		return lat;
+	}
+
+	public BigDecimal getLng() {
+		return lng;
+	}
+
+	public String getTrashType() {
+		return trashType;
+	}
+
+	public String getMemo() {
+		return memo;
+	}
+
+	public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
 }
