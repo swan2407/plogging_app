@@ -21,3 +21,8 @@ jwt:
   secret: ${JWT_SECRET:dev-plogging-jwt-secret-change-this-value-before-production-2026}
   access-token-validity-seconds: 3600
   refresh-token-validity-seconds: 1209600
+
+app:
+  upload:
+    dir: uploads
+    public-url-prefix: /uploads

@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
@@ -560,7 +563,114 @@ class _TrashRegistrationSheet extends StatefulWidget {
 }
 
 class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
+  final _imagePicker = ImagePicker();
   String? _trashType;
+  XFile? _selectedTrashImageFile;
+  Uint8List? _selectedTrashImageBytes;
+  bool _isPickingImage = false;
+
+  Future<void> _showImageSourceSheet() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('사진 촬영'),
+                  onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('앨범에서 선택'),
+                  onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('취소'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+    if (source == null) {
+      _showMessage('사진 선택이 취소되었습니다.');
+      return;
+    }
+    await _pickImage(source);
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    setState(() => _isPickingImage = true);
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 2048,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (image == null) {
+        _showMessage('사진 선택이 취소되었습니다.');
+        return;
+      }
+
+      final imageBytes = await image.readAsBytes();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedTrashImageFile = image;
+        _selectedTrashImageBytes = imageBytes;
+      });
+    } catch (error) {
+      debugPrint('Trash certification image pick failed: $error');
+      if (mounted) {
+        _showMessage('사진을 불러오지 못했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImage = false);
+      }
+    }
+  }
+
+  void _registerCertification() {
+    if (_selectedTrashImageFile == null) {
+      _showMessage('사진을 먼저 선택해 주세요.');
+      return;
+    }
+
+    widget.onRegister();
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(const SnackBar(content: Text('사진 인증이 등록되었습니다.')));
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -595,7 +705,12 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
               ),
             ),
             const SizedBox(height: 18),
-            const _PhotoCertificationCard(),
+            _PhotoCertificationCard(
+              selectedImageBytes: _selectedTrashImageBytes,
+              selectedImageName: _selectedTrashImageFile?.name,
+              isPickingImage: _isPickingImage,
+              onPressed: _showImageSourceSheet,
+            ),
             const SizedBox(height: 22),
             const _OptionalSectionTitle(),
             const SizedBox(height: 12),
@@ -633,13 +748,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
               width: double.infinity,
               height: 54,
               child: FilledButton(
-                onPressed: () {
-                  widget.onRegister();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('사진 인증이 등록되었습니다.')),
-                  );
-                },
+                onPressed: _registerCertification,
                 style: FilledButton.styleFrom(
                   backgroundColor: _PersonalPloggingScreenState._green,
                   foregroundColor: Colors.white,
@@ -673,7 +782,17 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
 }
 
 class _PhotoCertificationCard extends StatelessWidget {
-  const _PhotoCertificationCard();
+  const _PhotoCertificationCard({
+    required this.selectedImageBytes,
+    required this.selectedImageName,
+    required this.isPickingImage,
+    required this.onPressed,
+  });
+
+  final Uint8List? selectedImageBytes;
+  final String? selectedImageName;
+  final bool isPickingImage;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -694,38 +813,70 @@ class _PhotoCertificationCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add_a_photo_outlined,
-                  color: _PersonalPloggingScreenState._green,
-                  size: 42,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  '사진으로 간단히 인증해 주세요.',
-                  style: TextStyle(
-                    color: _PersonalPloggingScreenState._darkText,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+            clipBehavior: Clip.antiAlias,
+            child: selectedImageBytes == null
+                ? const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_a_photo_outlined,
+                        color: _PersonalPloggingScreenState._green,
+                        size: 42,
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        '사진으로 간단히 인증해 주세요.',
+                        style: TextStyle(
+                          color: _PersonalPloggingScreenState._darkText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.memory(selectedImageBytes!, fit: BoxFit.cover),
+                      Positioned(
+                        left: 10,
+                        right: 10,
+                        bottom: 8,
+                        child: Text(
+                          selectedImageName ?? '선택한 사진',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            shadows: [
+                              Shadow(color: Colors.black87, blurRadius: 6),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             height: 48,
             child: FilledButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('카메라 연결은 이후 제공됩니다.')),
-                );
-              },
-              icon: const Icon(Icons.photo_camera_outlined),
-              label: const Text('사진 추가'),
+              onPressed: isPickingImage ? null : onPressed,
+              icon: Icon(
+                isPickingImage
+                    ? Icons.hourglass_top_outlined
+                    : Icons.photo_camera_outlined,
+              ),
+              label: Text(
+                isPickingImage
+                    ? '사진 불러오는 중...'
+                    : selectedImageBytes == null
+                    ? '사진 추가'
+                    : '사진 변경',
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: _PersonalPloggingScreenState._green,
                 foregroundColor: Colors.white,

@@ -31,6 +31,10 @@ public class ApiException extends RuntimeException {
 		return new ApiException(HttpStatus.NOT_FOUND, message);
 	}
 
+	public static ApiException internalServerError(String message) {
+		return new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, message);
+	}
+
 	public HttpStatus getStatus() {
 		return status;
 	}

@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -40,6 +41,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 			.body(new ErrorResponse("이미 사용 중인 아이디 또는 닉네임입니다."));
+	}
+
+	@ExceptionHandler(MissingServletRequestPartException.class)
+	public ResponseEntity<ErrorResponse> handleMissingRequestPart(MissingServletRequestPartException exception) {
+		return ResponseEntity.badRequest()
+			.body(new ErrorResponse("이미지 파일이 필요합니다."));
 	}
 
 	public record ErrorResponse(String message) {

@@ -38,6 +38,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login", "/api/auth/refresh").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/health/**").permitAll()
+				.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/group-events", "/api/group-events/*").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/*", "/api/posts/*/comments").permitAll()
 				.anyRequest().authenticated()
