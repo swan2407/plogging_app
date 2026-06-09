@@ -576,56 +576,69 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
   Uint8List? _selectedTrashImageBytes;
   String? _uploadedTrashImageUrl;
   String? _uploadErrorMessage;
+  int _selectedImageVersion = 0;
+  bool _isChoosingImageSource = false;
   bool _isPickingImage = false;
   bool _isUploadingImage = false;
 
   Future<void> _showImageSourceSheet() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.photo_camera_outlined),
-                  title: const Text('사진 촬영'),
-                  onTap: () => Navigator.of(context).pop(ImageSource.camera),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.photo_library_outlined),
-                  title: const Text('앨범에서 선택'),
-                  onTap: () => Navigator.of(context).pop(ImageSource.gallery),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('취소'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    if (_isChoosingImageSource || _isPickingImage || _isUploadingImage) {
+      return;
+    }
 
-    if (!mounted) {
-      return;
+    setState(() => _isChoosingImageSource = true);
+    try {
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (context) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.photo_camera_outlined),
+                    title: const Text('사진 촬영'),
+                    onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.photo_library_outlined),
+                    title: const Text('앨범에서 선택'),
+                    onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('취소'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      if (!mounted) {
+        return;
+      }
+      if (source == null) {
+        _showMessage('사진 선택이 취소되었습니다.');
+        return;
+      }
+      await _pickImage(source);
+    } finally {
+      if (mounted) {
+        setState(() => _isChoosingImageSource = false);
+      }
     }
-    if (source == null) {
-      _showMessage('사진 선택이 취소되었습니다.');
-      return;
-    }
-    await _pickImage(source);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -653,6 +666,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
         _selectedTrashImageBytes = imageBytes;
         _uploadedTrashImageUrl = null;
         _uploadErrorMessage = null;
+        _selectedImageVersion++;
       });
       await _uploadSelectedImage();
     } catch (error) {
@@ -673,7 +687,11 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
       return;
     }
     final imageUrl = _uploadedTrashImageUrl;
-    if (imageUrl == null || _isUploadingImage) {
+    if (_isUploadingImage) {
+      _showMessage('사진 업로드가 완료된 후 저장해주세요.');
+      return;
+    }
+    if (imageUrl == null || imageUrl.trim().isEmpty) {
       _showMessage('쓰레기 인증 사진 업로드가 필요합니다.');
       return;
     }
@@ -689,6 +707,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
     if (image == null || _isUploadingImage) {
       return;
     }
+    final uploadImageVersion = _selectedImageVersion;
 
     final accessToken = mockAuthController.accessToken;
     if (accessToken == null) {
@@ -713,13 +732,19 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
       if (!mounted) {
         return;
       }
+      if (uploadImageVersion != _selectedImageVersion) {
+        return;
+      }
       setState(() => _uploadedTrashImageUrl = imageUrl);
       debugPrint('Trash certification image uploaded: $imageUrl');
       _showMessage('사진 업로드가 완료되었습니다.');
     } on ImageUploadException catch (exception) {
       debugPrint('Trash certification image upload failed: $exception');
       if (mounted) {
-        setState(() => _uploadErrorMessage = exception.message);
+        if (uploadImageVersion != _selectedImageVersion) {
+          return;
+        }
+        setState(() => _uploadErrorMessage = '사진 업로드에 실패했습니다.');
         _showMessage(
           exception.message == '로그인이 필요합니다.'
               ? exception.message
@@ -729,6 +754,9 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
     } catch (error) {
       debugPrint('Trash certification image upload failed: $error');
       if (mounted) {
+        if (uploadImageVersion != _selectedImageVersion) {
+          return;
+        }
         setState(() => _uploadErrorMessage = '사진 업로드에 실패했습니다.');
         _showMessage('사진 업로드에 실패했습니다.');
       }
@@ -782,6 +810,7 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
               selectedImageBytes: _selectedTrashImageBytes,
               selectedImageName: _selectedTrashImageFile?.name,
               isPickingImage: _isPickingImage,
+              isChoosingImageSource: _isChoosingImageSource,
               isUploadingImage: _isUploadingImage,
               uploadedImageUrl: _uploadedTrashImageUrl,
               uploadErrorMessage: _uploadErrorMessage,
@@ -863,6 +892,7 @@ class _PhotoCertificationCard extends StatelessWidget {
     required this.selectedImageBytes,
     required this.selectedImageName,
     required this.isPickingImage,
+    required this.isChoosingImageSource,
     required this.isUploadingImage,
     required this.uploadedImageUrl,
     required this.uploadErrorMessage,
@@ -873,6 +903,7 @@ class _PhotoCertificationCard extends StatelessWidget {
   final Uint8List? selectedImageBytes;
   final String? selectedImageName;
   final bool isPickingImage;
+  final bool isChoosingImageSource;
   final bool isUploadingImage;
   final String? uploadedImageUrl;
   final String? uploadErrorMessage;
@@ -997,7 +1028,10 @@ class _PhotoCertificationCard extends StatelessWidget {
             width: double.infinity,
             height: 48,
             child: FilledButton.icon(
-              onPressed: isPickingImage || isUploadingImage ? null : onPressed,
+              onPressed:
+                  isChoosingImageSource || isPickingImage || isUploadingImage
+                  ? null
+                  : onPressed,
               icon: Icon(
                 isPickingImage
                     ? Icons.hourglass_top_outlined
