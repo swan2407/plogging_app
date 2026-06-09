@@ -53,7 +53,12 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
       );
       return;
     }
-    if (widget.uploadedTrashImageUrls.isEmpty) {
+    final uploadedTrashImageUrls = widget.uploadedTrashImageUrls
+        .map((imageUrl) => imageUrl.trim())
+        .where((imageUrl) => imageUrl.isNotEmpty)
+        .toList();
+    if (uploadedTrashImageUrls.length != widget.uploadedTrashImageUrls.length ||
+        uploadedTrashImageUrls.isEmpty) {
       _showMessage('쓰레기 인증 사진 업로드가 필요합니다.');
       return;
     }
@@ -72,11 +77,11 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
           distanceMeter: 2400,
           regionSido: '경기',
           regionSigungu: '수원시',
-          trashCertificationCount: widget.uploadedTrashImageUrls.length,
+          trashCertificationCount: uploadedTrashImageUrls.length,
           trashRecords: List.generate(
-            widget.uploadedTrashImageUrls.length,
+            uploadedTrashImageUrls.length,
             (index) => TrashRecordRequest(
-              imageUrl: widget.uploadedTrashImageUrls[index],
+              imageUrl: uploadedTrashImageUrls[index],
               lat: 37.4200000,
               lng: 127.1260000,
               trashType: index == 0 ? 'PLASTIC' : null,
