@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 const apiBaseUrl = 'http://localhost:8080';
 
@@ -52,6 +53,29 @@ class ApiClient {
       ),
       path,
     );
+  }
+
+  Future<dynamic> uploadMultipart(
+    String path, {
+    required String fieldName,
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    required String accessToken,
+  }) {
+    return _send(() async {
+      final request = http.MultipartRequest('POST', _uri(path))
+        ..headers['Authorization'] = 'Bearer $accessToken'
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            fieldName,
+            bytes,
+            filename: filename,
+            contentType: MediaType.parse(contentType),
+          ),
+        );
+      return http.Response.fromStream(await _client.send(request));
+    }, path);
   }
 
   Map<String, String> headers({String? accessToken}) {

@@ -8,7 +8,12 @@ import '../data/mock_plogging_result_data.dart';
 import '../data/plogging_api_service.dart';
 
 class PloggingResultScreen extends StatefulWidget {
-  const PloggingResultScreen({super.key});
+  const PloggingResultScreen({
+    super.key,
+    this.uploadedTrashImageUrls = const [],
+  });
+
+  final List<String> uploadedTrashImageUrls;
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -48,6 +53,10 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
       );
       return;
     }
+    if (widget.uploadedTrashImageUrls.isEmpty) {
+      _showMessage('쓰레기 인증 사진 업로드가 필요합니다.');
+      return;
+    }
 
     setState(() => _isSaving = true);
 
@@ -63,12 +72,11 @@ class _PloggingResultScreenState extends State<PloggingResultScreen> {
           distanceMeter: 2400,
           regionSido: '경기',
           regionSigungu: '수원시',
-          trashCertificationCount:
-              mockPloggingResultSummary.trashCertificationCount,
+          trashCertificationCount: widget.uploadedTrashImageUrls.length,
           trashRecords: List.generate(
-            mockPloggingResultSummary.trashCertificationCount,
+            widget.uploadedTrashImageUrls.length,
             (index) => TrashRecordRequest(
-              imageUrl: 'mock://trash/photo-${index + 1}.jpg',
+              imageUrl: widget.uploadedTrashImageUrls[index],
               lat: 37.4200000,
               lng: 127.1260000,
               trashType: index == 0 ? 'PLASTIC' : null,

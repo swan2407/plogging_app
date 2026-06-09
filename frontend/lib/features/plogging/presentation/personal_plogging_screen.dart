@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/auth/mock_auth_controller.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../data/image_upload_service.dart';
 import 'plogging_result_screen.dart';
 
 class PersonalPloggingScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
   bool _isStarted = false;
   bool _isPaused = false;
   int _trashCertificationCount = 0;
+  final List<String> _uploadedTrashImageUrls = [];
 
   static const _green = Color(0xFF2E7D32);
   static const _lightGreen = Color(0xFFE8F5E9);
@@ -30,6 +32,7 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
       _isStarted = true;
       _isPaused = false;
       _trashCertificationCount = 0;
+      _uploadedTrashImageUrls.clear();
     });
   }
 
@@ -79,7 +82,9 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => const PloggingResultScreen(),
+        builder: (context) => PloggingResultScreen(
+          uploadedTrashImageUrls: List.unmodifiable(_uploadedTrashImageUrls),
+        ),
       ),
     );
   }
@@ -94,8 +99,9 @@ class _PersonalPloggingScreenState extends State<PersonalPloggingScreen> {
       ),
       builder: (context) {
         return _TrashRegistrationSheet(
-          onRegister: () {
+          onRegister: (imageUrl) {
             setState(() {
+              _uploadedTrashImageUrls.add(imageUrl);
               _trashCertificationCount++;
             });
           },
@@ -555,7 +561,7 @@ class _ActionButtons extends StatelessWidget {
 class _TrashRegistrationSheet extends StatefulWidget {
   const _TrashRegistrationSheet({required this.onRegister});
 
-  final VoidCallback onRegister;
+  final ValueChanged<String> onRegister;
 
   @override
   State<_TrashRegistrationSheet> createState() =>
@@ -564,10 +570,14 @@ class _TrashRegistrationSheet extends StatefulWidget {
 
 class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
   final _imagePicker = ImagePicker();
+  final _imageUploadService = ImageUploadService();
   String? _trashType;
   XFile? _selectedTrashImageFile;
   Uint8List? _selectedTrashImageBytes;
+  String? _uploadedTrashImageUrl;
+  String? _uploadErrorMessage;
   bool _isPickingImage = false;
+  bool _isUploadingImage = false;
 
   Future<void> _showImageSourceSheet() async {
     final source = await showModalBottomSheet<ImageSource>(
@@ -641,7 +651,10 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
       setState(() {
         _selectedTrashImageFile = image;
         _selectedTrashImageBytes = imageBytes;
+        _uploadedTrashImageUrl = null;
+        _uploadErrorMessage = null;
       });
+      await _uploadSelectedImage();
     } catch (error) {
       debugPrint('Trash certification image pick failed: $error');
       if (mounted) {
@@ -659,11 +672,71 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
       _showMessage('사진을 먼저 선택해 주세요.');
       return;
     }
+    final imageUrl = _uploadedTrashImageUrl;
+    if (imageUrl == null || _isUploadingImage) {
+      _showMessage('쓰레기 인증 사진 업로드가 필요합니다.');
+      return;
+    }
 
-    widget.onRegister();
+    widget.onRegister(imageUrl);
     final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
     messenger.showSnackBar(const SnackBar(content: Text('사진 인증이 등록되었습니다.')));
+  }
+
+  Future<void> _uploadSelectedImage() async {
+    final image = _selectedTrashImageFile;
+    if (image == null || _isUploadingImage) {
+      return;
+    }
+
+    final accessToken = mockAuthController.accessToken;
+    if (accessToken == null) {
+      setState(() {
+        _uploadedTrashImageUrl = null;
+        _uploadErrorMessage = '로그인이 필요합니다.';
+      });
+      _showMessage('로그인이 필요합니다.');
+      return;
+    }
+
+    setState(() {
+      _isUploadingImage = true;
+      _uploadedTrashImageUrl = null;
+      _uploadErrorMessage = null;
+    });
+    try {
+      final imageUrl = await _imageUploadService.uploadTrashCertificationImage(
+        image,
+        accessToken,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _uploadedTrashImageUrl = imageUrl);
+      debugPrint('Trash certification image uploaded: $imageUrl');
+      _showMessage('사진 업로드가 완료되었습니다.');
+    } on ImageUploadException catch (exception) {
+      debugPrint('Trash certification image upload failed: $exception');
+      if (mounted) {
+        setState(() => _uploadErrorMessage = exception.message);
+        _showMessage(
+          exception.message == '로그인이 필요합니다.'
+              ? exception.message
+              : '사진 업로드에 실패했습니다.',
+        );
+      }
+    } catch (error) {
+      debugPrint('Trash certification image upload failed: $error');
+      if (mounted) {
+        setState(() => _uploadErrorMessage = '사진 업로드에 실패했습니다.');
+        _showMessage('사진 업로드에 실패했습니다.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingImage = false);
+      }
+    }
   }
 
   void _showMessage(String message) {
@@ -709,7 +782,11 @@ class _TrashRegistrationSheetState extends State<_TrashRegistrationSheet> {
               selectedImageBytes: _selectedTrashImageBytes,
               selectedImageName: _selectedTrashImageFile?.name,
               isPickingImage: _isPickingImage,
+              isUploadingImage: _isUploadingImage,
+              uploadedImageUrl: _uploadedTrashImageUrl,
+              uploadErrorMessage: _uploadErrorMessage,
               onPressed: _showImageSourceSheet,
+              onRetryPressed: _uploadSelectedImage,
             ),
             const SizedBox(height: 22),
             const _OptionalSectionTitle(),
@@ -786,13 +863,21 @@ class _PhotoCertificationCard extends StatelessWidget {
     required this.selectedImageBytes,
     required this.selectedImageName,
     required this.isPickingImage,
+    required this.isUploadingImage,
+    required this.uploadedImageUrl,
+    required this.uploadErrorMessage,
     required this.onPressed,
+    required this.onRetryPressed,
   });
 
   final Uint8List? selectedImageBytes;
   final String? selectedImageName;
   final bool isPickingImage;
+  final bool isUploadingImage;
+  final String? uploadedImageUrl;
+  final String? uploadErrorMessage;
   final VoidCallback onPressed;
+  final VoidCallback onRetryPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -860,11 +945,59 @@ class _PhotoCertificationCard extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: 14),
+          if (isUploadingImage)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Text('사진을 업로드하는 중입니다...'),
+                ],
+              ),
+            )
+          else if (uploadedImageUrl != null)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                '사진 업로드가 완료되었습니다.',
+                style: TextStyle(
+                  color: _PersonalPloggingScreenState._green,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            )
+          else if (uploadErrorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                children: [
+                  Text(
+                    uploadErrorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFB91C1C),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onRetryPressed,
+                    icon: const Icon(Icons.refresh_outlined),
+                    label: const Text('다시 업로드'),
+                  ),
+                ],
+              ),
+            ),
           SizedBox(
             width: double.infinity,
             height: 48,
             child: FilledButton.icon(
-              onPressed: isPickingImage ? null : onPressed,
+              onPressed: isPickingImage || isUploadingImage ? null : onPressed,
               icon: Icon(
                 isPickingImage
                     ? Icons.hourglass_top_outlined
