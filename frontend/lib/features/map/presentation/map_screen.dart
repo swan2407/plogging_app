@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/map_api_service.dart';
 import '../data/mock_map_data.dart';
 import '../model/map_models.dart';
 
@@ -18,12 +19,45 @@ class _MapScreenState extends State<MapScreen> {
   static const _grayText = Color(0xFF6B7280);
   static const _inactive = Color(0xFFE5E7EB);
 
+  final _mapApiService = MapApiService();
   final Set<MapLayer> _activeLayers = {MapLayer.groupPlogging};
+  List<MapMarker> _markers = const [];
+  bool _isLoading = true;
+  bool _hasLoadError = false;
 
   List<MapMarker> get _visibleMarkers {
-    return mockMapMarkers
+    return _markers
         .where((marker) => _activeLayers.contains(marker.layer))
         .toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMarkers();
+  }
+
+  Future<void> _loadMarkers() async {
+    setState(() {
+      _isLoading = true;
+      _hasLoadError = false;
+    });
+    try {
+      final trashMarkers = await _mapApiService.fetchTrashMarkers();
+      final groupMarkers = await _mapApiService.fetchGroupEventMarkers();
+      if (!mounted) return;
+      setState(() {
+        _markers = [
+          ...trashMarkers.map((marker) => marker.toMapMarker()),
+          ...groupMarkers.map((marker) => marker.toMapMarker()),
+        ];
+      });
+    } catch (error) {
+      debugPrint('Map markers load failed: $error');
+      if (mounted) setState(() => _hasLoadError = true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   String get _selectedLayerSummary {
@@ -102,7 +136,12 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _MarkerListSection(markers: visibleMarkers),
+            _MarkerListSection(
+              markers: visibleMarkers,
+              isLoading: _isLoading,
+              hasLoadError: _hasLoadError,
+              onRetry: _loadMarkers,
+            ),
           ],
         ),
       ),
@@ -363,9 +402,17 @@ class _LocationSummaryCard extends StatelessWidget {
 }
 
 class _MarkerListSection extends StatelessWidget {
-  const _MarkerListSection({required this.markers});
+  const _MarkerListSection({
+    required this.markers,
+    required this.isLoading,
+    required this.hasLoadError,
+    required this.onRetry,
+  });
 
   final List<MapMarker> markers;
+  final bool isLoading;
+  final bool hasLoadError;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +422,11 @@ class _MarkerListSection extends StatelessWidget {
         children: [
           const _SectionHeader(icon: Icons.list_alt_outlined, title: '주변 항목'),
           const SizedBox(height: 14),
-          if (markers.isEmpty)
+          if (isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (hasLoadError)
+            _MapLoadError(onRetry: onRetry)
+          else if (markers.isEmpty)
             const _EmptyMarkerList()
           else
             for (var index = 0; index < markers.length; index++) ...[
@@ -480,7 +531,7 @@ class _EmptyMarkerList extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Text(
-        '선택한 레이어가 없어 표시할 항목이 없습니다.',
+        '표시할 지도 데이터가 없습니다.',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: _MapScreenState._grayText,
@@ -488,6 +539,34 @@ class _EmptyMarkerList extends StatelessWidget {
           fontWeight: FontWeight.w700,
         ),
       ),
+    );
+  }
+}
+
+class _MapLoadError extends StatelessWidget {
+  const _MapLoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Text(
+          '지도 데이터를 불러오지 못했습니다.',
+          style: TextStyle(
+            color: _MapScreenState._grayText,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh_outlined),
+          label: const Text('다시 시도'),
+        ),
+      ],
     );
   }
 }

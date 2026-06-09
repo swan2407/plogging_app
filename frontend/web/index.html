@@ -31,6 +31,32 @@
 
   <title>frontend</title>
   <link rel="manifest" href="manifest.json">
+
+  <script src="google_maps_api_key.local.js"></script>
+  <script>
+    function loadFlutterApp() {
+      if (!document.body) {
+        window.addEventListener('DOMContentLoaded', loadFlutterApp, { once: true });
+        return;
+      }
+      const flutterBootstrap = document.createElement('script');
+      flutterBootstrap.src = 'flutter_bootstrap.js';
+      flutterBootstrap.async = true;
+      document.body.appendChild(flutterBootstrap);
+    }
+
+    const googleMapsApiKey = window.GOOGLE_MAPS_API_KEY;
+    if (googleMapsApiKey && !googleMapsApiKey.startsWith('YOUR_')) {
+      const googleMapsScript = document.createElement('script');
+      googleMapsScript.src =
+        `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleMapsApiKey)}`;
+      googleMapsScript.onload = loadFlutterApp;
+      googleMapsScript.onerror = loadFlutterApp;
+      document.head.appendChild(googleMapsScript);
+    } else {
+      window.addEventListener('DOMContentLoaded', loadFlutterApp);
+    }
+  </script>
 </head>
 <body>
   <!--
@@ -41,6 +67,5 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
