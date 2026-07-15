@@ -2,7 +2,7 @@
 
 > 개인 플로깅 기록, 단체 플로깅 모집, 쓰레기 인증, 커뮤니티 공유, 마이페이지 통계를 하나의 흐름으로 연결한 Flutter + Spring Boot MVP 프로젝트입니다.
 
-현재 프로젝트는 **Flutter 프론트엔드 MVP**, **Spring Boot 백엔드 API**, **PostgreSQL Flyway 마이그레이션**, **Docker 기반 PostgreSQL/pgAdmin 검증 환경**까지 연결한 상태입니다. 실제 운영 서비스에 필요한 JWT, 이미지 업로드, 실시간 GPS/지도 API, 배포는 아직 구현하지 않은 MVP 범위입니다.
+현재 프로젝트는 **Flutter 프론트엔드 MVP**, **Spring Boot 백엔드 API**, **PostgreSQL Flyway 마이그레이션**, **Docker 기반 PostgreSQL/pgAdmin 검증 환경**까지 연결한 상태입니다. 
 
 ## 1. 프로젝트 소개
 
@@ -238,12 +238,4 @@ SELECT * FROM comments ORDER BY created_at DESC;
 SELECT * FROM post_likes ORDER BY created_at DESC;
 ```
 
-## 10. 포트폴리오 관점에서 배운 점
 
-이 프로젝트는 화면을 먼저 만드는 데서 끝나지 않고, 사용자가 만든 데이터가 어떤 테이블에 저장되고 어떤 통계로 다시 화면에 돌아오는지까지 연결했습니다.
-
-특히 사진 우선 쓰레기 인증, 구조화된 단체 플로깅 입력, 모집 마감 검증, PostgreSQL View 기반 통계는 모두 실제 사용자 흐름에서 발생하는 문제를 줄이기 위한 선택입니다.
-
-현재 범위는 운영 서비스가 아니라 **데모 가능한 통합 MVP**입니다. 다만 Flutter, Spring Boot, PostgreSQL, Docker, pgAdmin을 연결해 회원가입부터 활동 저장, 통계, 커뮤니티 공유까지 하나의 시나리오로 검증할 수 있습니다.
-
-자세한 발표 시연 흐름은 [docs/demo/demo-scenario.md](docs/demo/demo-scenario.md)를 참고합니다.
